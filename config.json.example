@@ -1,0 +1,10 @@
+{
+  "admins": [111111111],
+  "credentials": {
+    "telegramAccessToken": "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "telegramChannel": -1111111111111,
+    "telegramBotID": 1111111111
+  },
+  "delay": 60,
+  "timezone": 0
+}

@@ -1,7 +1,6 @@
 # Telegram Photo Channel Controller Bot
 ## About
-This bot was designed and built to control the telegram channel [Flickr Sneps](https://t.me/flickrsneps)
-and the twitter account [@flickrsneps](https://twitter.com/flickrsneps)
+This bot was originally designed to control the telegram channel [Flickr Sneps](https://t.me/flickrsneps) and the twitter account [@flickrsneps](https://twitter.com/flickrsneps). You can find the original bot code and repository at https://github.com/kheina/hourly-photo-telegram-bot .
 
 2024-05-16: Modifications have been made to the original bot to work as intended for my own personal use. @fox-io
 
@@ -14,10 +13,8 @@ twitter if it is either a photo or video.
 ## Usage
 Start by cloning the repo into your desired folder.
 
-Take the admins.json, delay.json, files.json, forwardList.json, timeZone.json, and usedIDs.json
-and move them into the app folder made by dropbox (create one of these on dropbox.com). Once you
-have done this, edit the first few lines of bot.py and change dbx, token, channel, and botID to
-your own information.
+1. Copy config.json.example to config.json and enter your information into this file.
+2. Copy data.json.example to data.json. You do not need to make changes to this file.
 
 The bot uses telegram's getUpdates method, so you can safely send it images and add it to groups while
 it isn't running and it will add them all to the proper files once it is launched.
@@ -30,8 +27,3 @@ on telegram bots and how they work.
 
 Once you start the bot, admins should get a message on telegram from the bot with some information
 including the current delay and number of photos in the queue.
-
-## etc
-
-If you have any questions about how the bot works or are having trouble setting it up, feel free to
-send me an email and I'd be happy to help.
