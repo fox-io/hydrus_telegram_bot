@@ -3,6 +3,8 @@
 This bot was designed and built to control the telegram channel [Flickr Sneps](https://t.me/flickrsneps)
 and the twitter account [@flickrsneps](https://twitter.com/flickrsneps)
 
+2024-05-16: Modifications have been made to the original bot to work as intended for my own personal use. @fox-io
+
 It works by storing the file information of files sent to it by an admin, and keeping them in a queue.
 By default, the delay is set to 60 minutes. Meaning, at the top of every hour, a file is downloaded
 from the queue and sent as a photo (if it is actually an image file) to the telegram channel specified
