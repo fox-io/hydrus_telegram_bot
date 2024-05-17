@@ -4,262 +4,258 @@ import sched
 import time
 import shutil
 
-# Initialize necessary variables (Set their values in config.json).
-token = ''
-channel = 0
-bot_id = 0
-admins = []
-files = []
-used_ids = []
-forward_list = []
-update_list = []
-delay = 60
-timezone = -5
-report = ''
-need_report = False
+# Initialize the global variable db.
+db = {
+    'data': {
+        'files': [],
+        'used_ids': [],
+        'forward_list': [],
+        'update_list': [],
+    },
+    'config': {
+        'admins': [],
+        'credentials': {
+            'access_token': "",
+            'channel': 0,
+            'bot_id': 0
+        },
+        'delay': 60,
+        'timezone': -5
+    },
+    'report': "",
+    'need_report': False
+}
 
 # Initialize the scheduler.
 scheduler = sched.scheduler(time.time, time.sleep)
 
 
 def update():
-    print()
-    # reinitialize all the lists and variables as global
-    global token
-    global bot_id
-    global channel
-    global admins
-    global files
-    global used_ids
-    global forward_list
-    global update_list
-    global delay
-    global timezone
-    global report
-    global need_report
-    report = ''
+    print('Updating\n--------')
+    # Pull in the db.
+    global db
+
+    # Clear the report.
+    print('- Clearing report.')
+    db['report'] = ""
 
     # Load the config values from config.json.
-    print('loading config...', end='')
+    print('- Loading config...')
     with open('config.json') as config:
+        # Load the config data from the file into a variable.
         configdata = json.load(config)
-        token = configdata['credentials']['telegramAccessToken']
-        print('token loaded')
 
-        channel = configdata['credentials']['telegramChannel']
-        print('channel loaded')
+        # Save the credentials to the db.
+        db['config']['credentials']['access_token'] = configdata['credentials']['telegramAccessToken']
+        print('  - Telegram access token loaded.')
 
-        bot_id = configdata['credentials']['telegramBotID']
-        print('botID loaded')
+        db['config']['credentials']['channel'] = configdata['credentials']['telegramChannel']
+        print('  - Telegram channel loaded.')
 
-        admins = configdata['admins']
-        print(len(admins), 'admins')
+        db['config']['credentials']['bot_id'] = configdata['credentials']['telegramBotID']
+        print('  - Telegram bot ID loaded.')
 
-        delay = configdata['delay']
-        print(delay, 'minute delay')
+        # Save the admins list to the db.
+        db['config']['admins'] = configdata['admins']
+        print('  - Loaded ' + str(len(db['config']['admins'])) + ' admins.')
 
-        timezone = configdata['timezone']
-        print('UTC', timezone)
-    print('success.')
+        # Save the post delay to the db.
+        db['config']['delay'] = configdata['delay']
+        print('  - Loaded ' + str(db['config']['delay']) + ' minute delay.')
 
-    print('Loading data...', end='')
+        # Save the timezone to the db.
+        db['config']['timezone'] = configdata['timezone']
+        print('  - Loaded timezone UTC ' + str(db['config']['timezone']))
+
+    # Load the data values from data.json.
+    print('- Loading data...')
     with open('data.json') as data:
+        # Load the data from the file into a variable.
         data = json.load(data)
 
-        files = data['files']
-        print(len(files), 'files')
+        # Save the files list to the db.
+        db['data']['files'] = data['files']
+        print('  - Loaded ' + str(len(db['data']['files'])) + ' files.')
 
-        used_ids = data['usedIDs']
-        print(len(used_ids), 'used ids')
+        # Save the used IDs list to the db.
+        db['data']['used_ids'] = data['usedIDs']
+        print('  - Loaded ' + str(len(db['data']['used_ids'])) + ' used IDs.')
 
-        forward_list = data['forwardList']
-        print(len(forward_list), 'forwards')
-    print('success.')
+        # Save the forward list to the db.
+        db['data']['forwardList'] = data['forwardList']
+        print('  - Loaded ' + str(len(db['data']['forwardList'])) + ' forwards.')
 
-    print()
-
-    print('getUpdates')
-    request = 'https://api.telegram.org/bot' + token + '/getUpdates'
+    # Get the latest updates from the Telegram bot.
+    print('- Getting updates')
+    request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getUpdates'
     response = requests.get(request)
-    # print(response.url)
     response = response.json()
     if response['ok']:
-        print('response:', 'ok')
-        update_list = response['result']
+        print('  - Response OK.')
+        db['data']['update_list'] = response['result']
     else:
-        print('response not ok')
+        print('  - Response not OK.')
     # BREAK
 
-    print(' updates:', len(update_list))
+    # Print the number of updates received.
+    print('  - Updates:', len(db['data']['update_list']))
 
-    while len(update_list) > 0:
-        for i in range(len(update_list)):
-            # print()
-            print('update_id:', update_list[i]['update_id'], '|', end=' ')
-            if 'message' in update_list[i]:
-                # print('  chat id:', updatelist[i]['message']['chat']['id'])
-                if update_list[i]['message']['chat']['id'] in admins:
-                    if 'document' in update_list[i]['message']:
+    while len(db['data']['update_list']) > 0:
+        for i in range(len(db['data']['update_list'])):
+            # Dumps the list of updates to the console.
+            # print('update_id:', db['data']['update_list'][i]['update_id'], '|', end=' ')
+
+            if 'message' in db['data']['update_list'][i]:
+                if db['data']['update_list'][i]['message']['chat']['id'] in db['config']['admins']:
+                    if 'document' in db['data']['update_list'][i]['message']:
                         # Save the caption to the document json object
-                        if 'caption' in update_list[i]['message']:
-                            update_list[i]['message']['document']['caption'] = update_list[i]['message']['caption']
+                        if 'caption' in db['data']['update_list'][i]['message']:
+                            db['data']['update_list'][i]['message']['document']['caption'] = db['data']['update_list'][i]['message']['caption']
 
-                        print(json.dumps(update_list[i]['message']['document'], indent=2, sort_keys=True))
-                        if update_list[i]['message']['document'] in files:
-                            print('files already contains this photo')
+                        # Dump the update information to console.
+                        # print(json.dumps(db['data']['update_list'][i]['message']['document'], indent=2, sort_keys=True))
+
+                        if db['data']['update_list'][i]['message']['document'] in db['data']['files']:
+                            print('Skipping previously added file.')
                         else:
-                            files.append(update_list[i]['message']['document'])
+                            db['data']['files'].append(db['data']['update_list'][i]['message']['document'])
                             print('file added', end=' ')
-                            if 'from' in update_list[i]['message']:
-                                if 'username' in update_list[i]['message']['from']:
-                                    print('(from ', update_list[i]['message']['from']['username'], ')', sep='')
+                            if 'from' in db['data']['update_list'][i]['message']:
+                                if 'username' in db['data']['update_list'][i]['message']['from']:
+                                    print('(from ', db['data']['update_list'][i]['message']['from']['username'], ')', sep='')
                                 else:
-                                    print('(from ', update_list[i]['message']['from']['first_name'], ' (',
-                                          update_list[i]['message']['from']['id'], '))', sep='')
+                                    print('(from ', db['data']['update_list'][i]['message']['from']['first_name'], ' (',
+                                          db['data']['update_list'][i]['message']['from']['id'], '))', sep='')
                             else:
                                 print()
                     else:
                         # MESSAGE DOESN'T CONTAIN A FILE, PUT PARSE CODE HERE
                         print('message does not contain a file', end=' ')
-                        # print(json.dumps(updatelist[i], indent=2, sort_keys=True))
-                        if 'from' in update_list[i]['message']:
-                            if 'username' in update_list[i]['message']['from']:
-                                print('(from ', update_list[i]['message']['from']['username'], ')', sep='')
+                        if 'from' in db['data']['update_list'][i]['message']:
+                            if 'username' in db['data']['update_list'][i]['message']['from']:
+                                print('(from ', db['data']['update_list'][i]['message']['from']['username'], ')', sep='')
                             else:
-                                print('(from ', update_list[i]['message']['from']['first_name'], ' (',
-                                      update_list[i]['message']['from']['id'], '))', sep='')
+                                print('(from ', db['data']['update_list'][i]['message']['from']['first_name'], ' (',
+                                      db['data']['update_list'][i]['message']['from']['id'], '))', sep='')
                         else:
                             print()
                 else:
                     print('update not from admin', end=' ')
-                    if 'new_chat_member' in update_list[i]['message']:
-                        if update_list[i]['message']['new_chat_member']['id'] == bot_id:
-                            forward_list.append(update_list[i]['message']['chat']['id'])
-                            if 'username' in update_list[i]['message']['from']:
-                                print('\nadded ', update_list[i]['message']['chat']['title'], ' (',
-                                      update_list[i]['message']['chat']['id'], ') to forwardList by ',
-                                      str(update_list[i]['message']['from']['username']), ' (',
-                                      update_list[i]['message']['from']['id'], ')', sep='')
-                                report = report + '`added `' + str(
-                                    update_list[i]['message']['chat']['title']) + '` to forwardList by `%40' + str(
-                                    update_list[i]['message']['from']['username']) + '\n'  # %40 = @
+                    if 'new_chat_member' in db['data']['update_list'][i]['message']:
+                        if db['data']['update_list'][i]['message']['new_chat_member']['id'] == db['config']['credentials']['bot_id']:
+                            db['data']['forward_list'].append(db['data']['update_list'][i]['message']['chat']['id'])
+                            if 'username' in db['data']['update_list'][i]['message']['from']:
+                                print('\nadded ', db['data']['update_list'][i]['message']['chat']['title'], ' (',
+                                      db['data']['update_list'][i]['message']['chat']['id'], ') to forwardList by ',
+                                      str(db['data']['update_list'][i]['message']['from']['username']), ' (',
+                                      db['data']['update_list'][i]['message']['from']['id'], ')', sep='')
+                                db['report'] = db['report'] + '`added `' + str(
+                                    db['data']['update_list'][i]['message']['chat']['title']) + '` to forwardList by `%40' + str(
+                                    db['data']['update_list'][i]['message']['from']['username']) + '\n'  # %40 = @
                             else:
-                                print('\nadded ', update_list[i]['message']['chat']['title'], ' (',
-                                      update_list[i]['message']['chat']['id'], ') to forwardList by ',
-                                      str(update_list[i]['message']['from']), sep='')
-                                report = report + '`added `' + str(
-                                    update_list[i]['message']['chat']['title']) + '` to forwardList by `' + str(
-                                    update_list[i]['message']['from']['first_name']) + ' (' + str(
-                                    update_list[i]['message']['from']['id']) + ')\n'
-                            need_report = True
-                    elif 'left_chat_member' in update_list[i]['message']:
-                        if update_list[i]['message']['left_chat_member']['id'] == bot_id:
-                            if update_list[i]['message']['chat']['id'] in forward_list:
-                                forward_list.remove(update_list[i]['message']['chat']['id'])
-                                print('\nremoved', update_list[i]['message']['chat']['title'], 'from forwardList')
-                                report = report + '`removed `' + str(
-                                    update_list[i]['message']['chat']['title']) + ' `from forwardList`\n'
-                                need_report = True
+                                print('\nadded ', db['data']['update_list'][i]['message']['chat']['title'], ' (',
+                                      db['data']['update_list'][i]['message']['chat']['id'], ') to forwardList by ',
+                                      str(db['data']['update_list'][i]['message']['from']), sep='')
+                                db['report'] = db['report'] + '`added `' + str(
+                                    db['data']['update_list'][i]['message']['chat']['title']) + '` to forwardList by `' + str(
+                                    db['data']['update_list'][i]['message']['from']['first_name']) + ' (' + str(
+                                    db['data']['update_list'][i]['message']['from']['id']) + ')\n'
+                            db['need_report'] = True
+                    elif 'left_chat_member' in db['data']['update_list'][i]['message']:
+                        if db['data']['update_list'][i]['message']['left_chat_member']['id'] == db['config']['credentials']['bot_id']:
+                            if db['data']['update_list'][i]['message']['chat']['id'] in db['data']['forward_list']:
+                                db['data']['forward_list'].remove(db['data']['update_list'][i]['message']['chat']['id'])
+                                print('\nremoved', db['data']['update_list'][i]['message']['chat']['title'], 'from forwardList')
+                                db['report'] = db['report'] + '`removed `' + str(
+                                    db['data']['update_list'][i]['message']['chat']['title']) + ' `from forwardList`\n'
+                                db['need_report'] = True
                     else:
-                        if 'from' in update_list[i]['message']:
-                            if 'username' in update_list[i]['message']['from']:
-                                print('(from ', update_list[i]['message']['from']['username'], ')', sep='')
+                        if 'from' in db['data']['update_list'][i]['message']:
+                            if 'username' in db['data']['update_list'][i]['message']['from']:
+                                print('(from ', db['data']['update_list'][i]['message']['from']['username'], ')', sep='')
                             else:
-                                print('(from ', update_list[i]['message']['from']['first_name'], ' (',
-                                      update_list[i]['message']['from']['id'], '))', sep='')
+                                print('(from ', db['data']['update_list'][i]['message']['from']['first_name'], ' (',
+                                      db['data']['update_list'][i]['message']['from']['id'], '))', sep='')
                         else:
                             print()
-                        print('   ', update_list[i]['message'])
+                        print('   ', db['data']['update_list'][i]['message'])
             else:
                 print('update not does not contain message')
-                print(update_list[i])
-        if len(update_list) > 0:
-            mostrecentupdate = update_list[len(update_list) - 1]['update_id']
-            print('clearing updatelist through to update_id', mostrecentupdate + 1)
-            request = 'https://api.telegram.org/bot' + token + '/getUpdates'
+                print(db['data']['update_list'][i])
+        if len(db['data']['update_list']) > 0:
+            mostrecentupdate = db['data']['update_list'][len(db['data']['update_list']) - 1]['update_id']
+            print('clearing update_list through to update_id', mostrecentupdate + 1)
+            request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getUpdates'
             response = requests.get(request + '?offset=' + str(mostrecentupdate + 1))
             response = response.json()
             if response['ok']:
-                update_list = response['result']
-                print(' updates:', len(update_list))
-                if len(update_list) <= 0:
+                db['data']['update_list'] = response['result']
+                print(' updates:', len(db['data']['update_list']))
+                if len(db['data']['update_list']) <= 0:
                     print('...success')
                 else:
-                    print('updatelist not empty, repeating...')
+                    print('update_list not empty, repeating...')
             else:
                 print('failed')
-                need_report = True
+                db['need_report'] = True
     else:
-        print('updatelist empty')
+        print('update_list empty')
 
     print()
 
 
 def report_forwards():
     print()
-    global token
-    global forward_list
-    global report
-    global admins
-    report = ''
+    global db
+    db['report'] = ''
 
     with open('data.json') as data:
         data = json.load(data)
-        forward_list = data['forwardList']
-        print(len(forward_list), 'forwards')
+        db['data']['forward_list'] = data['forwardList']
+        print(len(db['data']['forward_list']), 'forwards')
     print()
 
-    request = 'https://api.telegram.org/bot' + token + '/getChat'
+    request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getChat'
 
-    for i in range(len(forward_list)):
-        response = requests.get(request + '?chat_id=' + str(forward_list[i]))
+    for i in range(len(db['data']['forward_list'])):
+        response = requests.get(request + '?chat_id=' + str(db['data']['forward_list'][i]))
         response = response.json()
         if response['ok']:
             print('forward[', str(i), ']: (', str(response['result']['id']), ') ', response['result']['title'], sep='')
-            report = report + '`forward[' + str(i) + ']: `' + response['result']['title'] + '\n'
+            db['report'] = db['report'] + '`forward[' + str(i) + ']: `' + response['result']['title'] + '\n'
         else:
-            print('forward[', str(i), ']: (', str(forward_list[i]), ') ', response['description'], sep='')
+            print('forward[', str(i), ']: (', str(db['data']['forward_list'][i]), ') ', response['description'], sep='')
 
     print()
 
 
-def update_dropbox():
-    print()
-    # reinitialize all the lists and variables as global
-    global files
-    global used_ids
-    global forward_list
-    global delay
+def update_data_file():
+    # Saves all the data to the data.json file.
+    global db
 
     with open('data.json', 'w') as data:
         json.dump({
-            'files': files,
-            'usedIDs': used_ids,
-            'forwardList': forward_list,
+            'files': db['data']['files'],
+            'usedIDs': db['data']['used_ids'],
+            'forwardList': db['data']['forward_list'],
         }, data)
 
-    print()
+    print('data.json updated')
 
 
 def post_photo():
     print()
-    global token
-    global channel
-    global files
-    global used_ids
-    global forward_list
-    global report
-    global need_report
+    global db
     remove_list = []
     is_image = True
     forward_message = True
 
-    if len(files) > 0:
-        file_to_send = files[0]
+    if len(db['data']['files']) > 0:
+        file_to_send = db['data']['files'][0]
         filename = 'image'
         filecaption = ''
         link = None
-        request = 'https://api.telegram.org/bot' + token + '/getFile?file_id=' + file_to_send['file_id']
+        request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getFile?file_id=' + file_to_send['file_id']
         # print(request)
         response = requests.get(request)
         response = response.json()
@@ -276,7 +272,7 @@ def post_photo():
                 mime_type = file_to_send['mime_type'].split('/')
                 filename = filename + '.' + mime_type[1]  # uses anything found after the slash
             print('downloading...', end='')
-            request = 'https://api.telegram.org/file/bot' + token + '/' + response['result']['file_path']
+            request = 'https://api.telegram.org/file/bot' + db['config']['credentials']['access_token'] + '/' + response['result']['file_path']
             response = requests.get(request, stream=True)  # stream=True IS REQUIRED
             print('done.', end='')
             if response.status_code == 200:
@@ -285,72 +281,72 @@ def post_photo():
             print(' saved as ' + filename)
         else:
             print('response not ok')
-            report = report + '`post failed.`\n`photo re-added to queue.`'
+            db['report'] = db['report'] + '`post failed.`\n`photo re-added to queue.`'
             return  # we don't have a sendable file, so just return
 
-        snep = open(filename, 'rb')
+        image_file = open(filename, 'rb')
 
         # send to telegram
         if is_image:
-            print('sending photo to telegram, chat_id:' + str(channel) + '...', end='')
-            request = 'https://api.telegram.org/bot' + token + '/sendPhoto'
-            telegramfile = {'photo': snep}
+            print('sending photo to telegram, chat_id:' + str(db['config']['credentials']['channel']) + '...', end='')
+            request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendPhoto'
+            telegramfile = {'photo': image_file}
             if filecaption is not None:
                 sent_file = requests.get(
-                    request + '?chat_id=' + str(channel) + '&caption=' + filecaption.replace('&', '%26'),
+                    request + '?chat_id=' + str(db['config']['credentials']['channel']) + '&caption=' + filecaption.replace('&', '%26'),
                     files=telegramfile)
             else:
-                sent_file = requests.get(request + '?chat_id=' + str(channel), files=telegramfile)
+                sent_file = requests.get(request + '?chat_id=' + str(db['config']['credentials']['channel']), files=telegramfile)
             if sent_file.json()['ok']:
                 sent_file = sent_file.json()
-                if len(files) <= 10:
-                    report = report + '`telegram...success.`'
-                    need_report = True
+                if len(db['data']['files']) <= 10:
+                    db['report'] = db['report'] + '`telegram...success.`'
+                    db['need_report'] = True
                 else:
-                    report = report + '`telegram...success.`'
-                used_ids.append(sent_file['result']['photo'][-1]['file_id'])
-                files.pop(0)
+                    db['report'] = db['report'] + '`telegram...success.`'
+                db['data']['used_ids'].append(sent_file['result']['photo'][-1]['file_id'])
+                db['data']['files'].pop(0)
                 print('success.')
             else:
                 print('sent_file not ok, skipping forwards')
                 print(sent_file.json())
-                report = report + '`post failed.`\n`photo re-added to queue.`'
+                db['report'] = db['report'] + '`post failed.`\n`photo re-added to queue.`'
                 print('failed.')
-                need_report = True
+                db['need_report'] = True
                 forward_message = False
         else:
-            print('sending file to telegram, chat_id:' + str(channel) + '...', end='')
+            print('sending file to telegram, chat_id:' + str(db['config']['credentials']['channel']) + '...', end='')
             if link is not None:
-                request = 'https://api.telegram.org/bot' + token + '/sendDocument?chat_id=' + str(
-                    channel) + '&document=' + file_to_send['file_id'] + '&caption=' + link.replace('&', '%26')
+                request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendDocument?chat_id=' + str(
+                    db['config']['credentials']['channel']) + '&document=' + file_to_send['file_id'] + '&caption=' + link.replace('&', '%26')
             else:
-                request = 'https://api.telegram.org/bot' + token + '/sendDocument?chat_id=' + str(
-                    channel) + '&document=' + file_to_send['file_id']
+                request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendDocument?chat_id=' + str(
+                    db['config']['credentials']['channel']) + '&document=' + file_to_send['file_id']
             sent_file = requests.get(request)
             if sent_file.json()['ok']:
                 sent_file = sent_file.json()
-                if len(files) <= 10:
-                    report = report + '`telegram...success.`'
-                    need_report = True
+                if len(db['data']['files']) <= 10:
+                    db['report'] = db['report'] + '`telegram...success.`'
+                    db['need_report'] = True
                 # else :
-                # report = report + '`telegram...success.`'
-                files.pop(0)
+                # db['report'] = db['report'] + '`telegram...success.`'
+                db['data']['files'].pop(0)
                 print('success.')
             else:
                 print('sent_file not ok, skipping forwards')
                 print(sent_file.json())
-                report = report + '`post failed.`\n`photo re-added to queue.`'
+                db['report'] = db['report'] + '`post failed.`\n`photo re-added to queue.`'
                 print('failed.')
-                need_report = True
+                db['need_report'] = True
                 forward_message = False
 
         # FORWARDING PHOTO
         if forward_message:
-            print('forwarding photo to', len(forward_list), 'chats...', end='')
+            print('forwarding photo to', len(db['data']['forward_list']), 'chats...', end='')
             successful_forwards = 0
-            for i in range(len(forward_list)):
-                request = requests.get('https://api.telegram.org/bot' + token + '/forward_message?chat_id=' + str(
-                    forward_list[i]) + '&from_chat_id=' + str(channel) + '&message_id=' + str(
+            for i in range(len(db['data']['forward_list'])):
+                request = requests.get('https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/forward_message?chat_id=' + str(
+                    db['data']['forward_list'][i]) + '&from_chat_id=' + str(db['config']['credentials']['channel']) + '&message_id=' + str(
                     sent_file['result']['message_id']))
                 response = request.json()
                 if response['ok']:
@@ -358,77 +354,73 @@ def post_photo():
                 # print('forward[' + str(i) + '] ok')
                 elif 'description' in response:
                     if 'Forbidden' in response['description']:
-                        remove_list.append(forward_list[i])
-                        report = report + '\n` removed `' + str(forward_list[i]) + '` from forward list`'
-                        need_report = True
+                        remove_list.append(db['data']['forward_list'][i])
+                        db['report'] = db['report'] + '\n` removed `' + str(db['data']['forward_list'][i]) + '` from forward list`'
+                        db['need_report'] = True
                     elif ('group chat was upgraded to a supergroup chat' in response['description'] and
                           'parameters' in response and 'migrate_to_chat_id' in response['parameters']):
-                        forward_list[i] = response['parameters']['migrate_to_chat_id']
+                        db['data']['forward_list'][i] = response['parameters']['migrate_to_chat_id']
                         # try again
                         print('\ntrying with new ID...', end='')
                         secondtry = requests.get(
-                            'https://api.telegram.org/bot' + token + '/forward_message?chat_id=' + str(
-                                forward_list[i]) + '&from_chat_id=' + str(channel) + '&message_id=' + str(
+                            'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/forward_message?chat_id=' + str(
+                                db['data']['forward_list'][i]) + '&from_chat_id=' + str(db['config']['credentials']['channel']) + '&message_id=' + str(
                                 sent_file['result']['message_id']))
                         if secondtry.json()['ok']:
                             successful_forwards = successful_forwards + 1
                             print('success.')
                         else:
-                            need_report = True
+                            db['need_report'] = True
                             print('failed')
                 else:
                     getchat = requests.get(
-                        'https://api.telegram.org/bot' + token + '/getChat?chat_id=' + str(forward_list[i]))
+                        'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getChat?chat_id=' + str(db['data']['forward_list'][i]))
                     getchat = getchat.json()
                     if getchat['ok']:
-                        print('\nforward[' + str(i) + '] failed (chat_id: ' + str(forward_list[i]) + ') ' +
+                        print('\nforward[' + str(i) + '] failed (chat_id: ' + str(db['data']['forward_list'][i]) + ') ' +
                               getchat['result']['title'], end='')
-                        report = report + '\n`forward[`' + str(i) + '`] failed (chat_id: `' + str(
-                            forward_list[i]) + '`) ` ' + getchat['result']['title']
-                        need_report = True
+                        db['report'] = db['report'] + '\n`forward[`' + str(i) + '`] failed (chat_id: `' + str(
+                            db['data']['forward_list'][i]) + '`) ` ' + getchat['result']['title']
+                        db['need_report'] = True
                     else:
                         if 'description' in getchat:
-                            print('\nforward[' + str(i) + '] failed (chat_id: ' + str(forward_list[i]) + ') ' + getchat[
+                            print('\nforward[' + str(i) + '] failed (chat_id: ' + str(db['data']['forward_list'][i]) + ') ' + getchat[
                                 'description'], end='')
-                            report = report + '\n`forward[`' + str(i) + '`] failed (chat_id: `' + str(
-                                forward_list[i]) + '`) `' + getchat['description']
+                            db['report'] = db['report'] + '\n`forward[`' + str(i) + '`] failed (chat_id: `' + str(
+                                db['data']['forward_list'][i]) + '`) `' + getchat['description']
                             if 'Forbidden' in getchat['description']:
-                                remove_list.append(forward_list[i])
-                                report = report + '\n` removed `' + str(forward_list[i]) + '` from forward list`'
-                                need_report = True
+                                remove_list.append(db['data']['forward_list'][i])
+                                db['report'] = db['report'] + '\n` removed `' + str(db['data']['forward_list'][i]) + '` from forward list`'
+                                db['need_report'] = True
                         else:
-                            print('\nforward[' + str(i) + '] failed (chat_id: ' + str(forward_list[i]) + ')', end='')
-                            report = report + '\n`forward[`' + str(i) + '`] failed (chat_id: `' + str(
-                                forward_list[i]) + '`)'
-                            need_report = True
+                            print('\nforward[' + str(i) + '] failed (chat_id: ' + str(db['data']['forward_list'][i]) + ')', end='')
+                            db['report'] = db['report'] + '\n`forward[`' + str(i) + '`] failed (chat_id: `' + str(
+                                db['data']['forward_list'][i]) + '`)'
+                            db['need_report'] = True
                     if 'description' in response:
-                        report = report + ' reason: `' + response['description']
+                        db['report'] = db['report'] + ' reason: `' + response['description']
                     else:
-                        report = report + '`'
+                        db['report'] = db['report'] + '`'
                     print('\nraw response:', response, end='')
                     print('\nraw command:', request.url)
-            report = report + '\n` forwarded to: `' + str(successful_forwards) + '` chats`'
+            db['report'] = db['report'] + '\n` forwarded to: `' + str(successful_forwards) + '` chats`'
             print('done. ')
     else:
-        report = report + '`post failed.`\n`no photos in queue.`\nADD PHOTOS IMMEDIATELY'
-        need_report = True
+        db['report'] = db['report'] + '`post failed.`\n`no photos in queue.`\nADD PHOTOS IMMEDIATELY'
+        db['need_report'] = True
     if len(remove_list) > 0:
         for i in range(len(remove_list)):
-            forward_list.remove(remove_list[i])
+            db['data']['forward_list'].remove(remove_list[i])
 
 
 def schedule_nextupdate():
     print()
     # reinitialize all the lists and variables as global
-    global files
-    global delay
-    global timezone
-    global report
+    global db
     global scheduler
-    global need_report
 
-    nextupdate = currenttime = (time.time() + ((60 * 60) * timezone))
-    nextupdate = (nextupdate - (nextupdate % (delay * 60))) + (delay * 60)
+    nextupdate = currenttime = (time.time() + ((60 * 60) * db['config']['timezone']))
+    nextupdate = (nextupdate - (nextupdate % (db['config']['delay'] * 60))) + (db['config']['delay'] * 60)
 
     noowtime = ''
     if time.localtime(currenttime).tm_hour < 10:
@@ -446,33 +438,29 @@ def schedule_nextupdate():
         nexttime = nexttime + '0'
     nexttime = nexttime + str(time.localtime(nextupdate).tm_min)
 
-    report = report + '\n`current delay: `' + str(delay) + '` minutes\ncurrent queue: `' + str(
-        len(files)) + '`\n current time: `' + noowtime + '`\n  next update: `' + nexttime
-    if len(files) < 10:
-        report = report + '\nLOW ON PHOTOS'
-        need_report = True
-    # report = report + '\n`next photo in queue: `'
+    db['report'] = db['report'] + '\n`current delay: `' + str(db['config']['delay']) + '` minutes\ncurrent queue: `' + str(
+        len(db['data']['files'])) + '`\n current time: `' + noowtime + '`\n  next update: `' + nexttime
+    if len(db['data']['files']) < 10:
+        db['report'] = db['report'] + '\nLOW ON PHOTOS'
+        db['need_report'] = True
+    # db['report'] = db['report'] + '\n`next photo in queue: `'
 
     print('current time:', noowtime)
     print(' next update:', nexttime)
     print()
-    print('scheduling update for', delay, 'minutes from now')
-    # scheduler.enter((delay * 60), 1, scheduled_post, ())
-    scheduler.enterabs((nextupdate - (3600 * timezone)), 1, scheduled_post, ())
+    print('scheduling update for', db['config']['delay'], 'minutes from now')
+    # scheduler.enter((db['config']['delay'] * 60), 1, scheduled_post, ())
+    scheduler.enterabs((nextupdate - (3600 * db['config']['timezone'])), 1, scheduled_post, ())
 
 
 def schedule_firstupdate():
     print()
     # reinitialize all the lists and variables as global
-    global files
-    global delay
-    global timezone
-    global forward_list
-    global report
+    global db
     global scheduler
 
-    nextupdate = currenttime = (time.time() + ((60 * 60) * timezone))
-    nextupdate = (nextupdate - (nextupdate % (delay * 60))) + (delay * 60)
+    nextupdate = currenttime = (time.time() + ((60 * 60) * db['config']['timezone']))
+    nextupdate = (nextupdate - (nextupdate % (db['config']['delay'] * 60))) + (db['config']['delay'] * 60)
 
     noowtime = ''
     if time.localtime(currenttime).tm_hour < 10:
@@ -490,17 +478,17 @@ def schedule_firstupdate():
         nexttime = nexttime + '0'
     nexttime = nexttime + str(time.localtime(nextupdate).tm_min)
 
-    report = report + '`  bot started`\n`current delay: `' + str(delay) + '` minutes`\n`current queue: `' + str(
-        len(files)) + '\n`     forwards: `' + str(
-        len(forward_list)) + '\n` current time: `' + noowtime + '\n`  next update: `' + nexttime
-    # report = report + '\n`next photo in queue: `'
+    db['report'] = db['report'] + '`  bot started`\n`current delay: `' + str(db['config']['delay']) + '` minutes`\n`current queue: `' + str(
+        len(db['data']['files'])) + '\n`     forwards: `' + str(
+        len(db['data']['forward_list'])) + '\n` current time: `' + noowtime + '\n`  next update: `' + nexttime
+    # db['report'] = db['report'] + '\n`next photo in queue: `'
 
     print('current time:', noowtime)
     print('next update: ', nexttime)
     print('bot started. scheduling first post...')
     print('scheduling update for', nexttime)
     # post_photo()
-    scheduler.enterabs((nextupdate - (3600 * timezone)), 1, scheduled_post, ())
+    scheduler.enterabs((nextupdate - (3600 * db['config']['timezone'])), 1, scheduled_post, ())
 
 
 # https://stackoverflow.com/a/1267145/8197207
@@ -515,29 +503,26 @@ def is_int(s):
 def send_report():
     print()
     # reinitialize all the lists and variables as global
-    global token
-    global admins
-    global files
-    global report
+    global db
 
-    if len(files) > 0:
-        request = 'https://api.telegram.org/bot' + token + '/sendMessage'
-        for i in range(len(admins)):
-            request = requests.get(request + '?chat_id=' + str(admins[i]) + '&text=' + report + '&parse_mode=Markdown')
+    if len(db['data']['files']) > 0:
+        request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendMessage'
+        for i in range(len(db['config']['admins'])):
+            request = requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=' + db['report'] + '&parse_mode=Markdown')
             response = request.json()
             if response['ok']:
-                print('report[' + str(i) + ']: ok')
+                print('db[\'report\'][' + str(i) + ']: ok')
             else:
-                print('report[' + str(i) + ']: failed (' + str(admins[i]) + ')')
+                print('db[\'report\'][' + str(i) + ']: failed (' + str(db['config']['admins'][i]) + ')')
                 if 'description' in response:
                     print('reason: ' + response['description'])
                 print('raw response:', response)
                 print('raw request:', request.url)
     else:
-        request = 'https://api.telegram.org/bot' + token + '/sendMessage'
-        for i in range(len(admins)):
-            requests.get(request + '?chat_id=' + str(admins[i]) + '&text=' + report + '&parse_mode=Markdown')
-            requests.get(request + '?chat_id=' + str(admins[i]) + '&text=NO PHOTOS IN QUEUE&parse_mode=Markdown')
+        request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendMessage'
+        for i in range(len(db['config']['admins'])):
+            requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=' + db['report'] + '&parse_mode=Markdown')
+            requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=NO PHOTOS IN QUEUE&parse_mode=Markdown')
 
     print('report sent')
 
@@ -549,7 +534,7 @@ def initial_startup():
 
     report_forwards()
     update()
-    update_dropbox()
+    update_data_file()
     schedule_firstupdate()
     send_report()
 
@@ -558,17 +543,16 @@ def initial_startup():
 
 def scheduled_post():
     print()
-    # reinitialize all the lists and variables as global
     global scheduler
-    global need_report
+    global db
 
     update()
     post_photo()
-    update_dropbox()
+    update_data_file()
     schedule_nextupdate()
-    if need_report:
+    if db['need_report']:
         send_report()
-    need_report = False
+    db['need_report'] = False
     scheduler.run()
 
 
