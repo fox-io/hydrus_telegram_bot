@@ -41,60 +41,66 @@ def print_username(message):
         print('From unknown user')
 
 
+def load_config():
+    global db
+
+    # Load the config values from config.json.
+    with open('config.json') as config:
+        print('Loading config')
+
+        # Load the config data from the file into a variable.
+        configdata = json.load(config)
+
+        # Save the config values to the db.
+        db['config']['credentials']['access_token'] = configdata['credentials']['telegramAccessToken']
+        db['config']['credentials']['channel'] = configdata['credentials']['telegramChannel']
+        db['config']['credentials']['bot_id'] = configdata['credentials']['telegramBotID']
+        db['config']['admins'] = configdata['admins']
+        db['config']['delay'] = configdata['delay']
+        db['config']['timezone'] = configdata['timezone']
+
+
+def load_data():
+    global db
+
+    # Load the data values from data.json.
+    with open('data.json') as data:
+        print('Loading data.json')
+
+        # Load the data from the file into a variable.
+        data = json.load(data)
+
+        # Save the data values to the db.
+        db['data']['files'] = data['files']
+        db['data']['used_ids'] = data['usedIDs']
+        db['data']['forwardList'] = data['forwardList']
+
+
+def save_data():
+    # Saves the data values to the data.json file.
+    global db
+
+    with open('data.json', 'w') as data:
+        json.dump({
+            'files': db['data']['files'],
+            'usedIDs': db['data']['used_ids'],
+            'forwardList': db['data']['forward_list'],
+        }, data)
+
+    print('data.json updated')
+
+
 def update():
     print('Updating\n--------')
     # Pull in the db.
     global db
 
     # Clear the report.
-    print('- Clearing report.')
     db['report'] = ""
 
-    # Load the config values from config.json.
-    print('- Loading config...')
-    with open('config.json') as config:
-        # Load the config data from the file into a variable.
-        configdata = json.load(config)
-
-        # Save the credentials to the db.
-        db['config']['credentials']['access_token'] = configdata['credentials']['telegramAccessToken']
-        print('  - Telegram access token loaded.')
-
-        db['config']['credentials']['channel'] = configdata['credentials']['telegramChannel']
-        print('  - Telegram channel loaded.')
-
-        db['config']['credentials']['bot_id'] = configdata['credentials']['telegramBotID']
-        print('  - Telegram bot ID loaded.')
-
-        # Save the admins list to the db.
-        db['config']['admins'] = configdata['admins']
-        print('  - Loaded ' + str(len(db['config']['admins'])) + ' admins.')
-
-        # Save the post delay to the db.
-        db['config']['delay'] = configdata['delay']
-        print('  - Loaded ' + str(db['config']['delay']) + ' minute delay.')
-
-        # Save the timezone to the db.
-        db['config']['timezone'] = configdata['timezone']
-        print('  - Loaded timezone UTC ' + str(db['config']['timezone']))
-
-    # Load the data values from data.json.
-    print('- Loading data...')
-    with open('data.json') as data:
-        # Load the data from the file into a variable.
-        data = json.load(data)
-
-        # Save the files list to the db.
-        db['data']['files'] = data['files']
-        print('  - Loaded ' + str(len(db['data']['files'])) + ' files.')
-
-        # Save the used IDs list to the db.
-        db['data']['used_ids'] = data['usedIDs']
-        print('  - Loaded ' + str(len(db['data']['used_ids'])) + ' used IDs.')
-
-        # Save the forward list to the db.
-        db['data']['forwardList'] = data['forwardList']
-        print('  - Loaded ' + str(len(db['data']['forwardList'])) + ' forwards.')
+    # Load the config and data JSON files.
+    load_config()
+    load_data()
 
     # Get the latest updates from the Telegram bot.
     print('- Getting updates')
@@ -186,8 +192,8 @@ def update():
 
 
 def report_forwards():
-    print()
     global db
+
     db['report'] = ''
 
     with open('data.json') as data:
@@ -209,19 +215,6 @@ def report_forwards():
 
     print()
 
-
-def update_data_file():
-    # Saves all the data to the data.json file.
-    global db
-
-    with open('data.json', 'w') as data:
-        json.dump({
-            'files': db['data']['files'],
-            'usedIDs': db['data']['used_ids'],
-            'forwardList': db['data']['forward_list'],
-        }, data)
-
-    print('data.json updated')
 
 
 def post_photo():
@@ -529,13 +522,11 @@ def send_report():
 
 
 def initial_startup():
-    print('initial_startup()')
-    # reinitialize all the lists and variables as global
     global scheduler
 
     report_forwards()
     update()
-    update_data_file()
+    save_data()
     schedule_firstupdate()
     send_report()
 
@@ -549,7 +540,7 @@ def scheduled_post():
 
     update()
     post_photo()
-    update_data_file()
+    save_data()
     schedule_nextupdate()
     if db['need_report']:
         send_report()
