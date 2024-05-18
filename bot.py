@@ -474,43 +474,9 @@ def send_message(message):
     if len(message) > 0:
         request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendMessage'
         for i in range(len(db['config']['admins'])):
-            request = requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=' + message + '&parse_mode=Markdown')
-            response = request.json()
-            if response['ok']:
-                print('Message sent to', db['config']['admins'][i])
-            else:
-                print('Message not sent to', db['config']['admins'][i])
-                if 'description' in response:
-                    print('reason:', response['description'])
-                print('raw response:', response)
-                print('raw request:', request.url)
-
-
-def send_report():
-    print()
-    # reinitialize all the lists and variables as global
-    global db
-
-    if len(db['data']['files']) > 0:
-        request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendMessage'
-        for i in range(len(db['config']['admins'])):
-            request = requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=' + db['report'] + '&parse_mode=Markdown')
-            response = request.json()
-            if response['ok']:
-                print('db[\'report\'][' + str(i) + ']: ok')
-            else:
-                print('db[\'report\'][' + str(i) + ']: failed (' + str(db['config']['admins'][i]) + ')')
-                if 'description' in response:
-                    print('reason: ' + response['description'])
-                print('raw response:', response)
-                print('raw request:', request.url)
-    else:
-        request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendMessage'
-        for i in range(len(db['config']['admins'])):
-            requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=' + db['report'] + '&parse_mode=Markdown')
-            requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=NO PHOTOS IN QUEUE&parse_mode=Markdown')
-
-    print('report sent')
+            requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=' + message + '&parse_mode=Markdown')
+            if len(db['data']['files']) == 0:
+                requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=NO PHOTOS IN QUEUE&parse_mode=Markdown')
 
 
 def initial_startup():
@@ -520,7 +486,7 @@ def initial_startup():
     report_forwards()
     save_data()
     schedule_firstupdate()
-    send_report()
+    send_message(db['report'])
 
     scheduler.run()
 
@@ -535,7 +501,7 @@ def scheduled_post():
     save_data()
     schedule_nextupdate()
     if db['need_report']:
-        send_report()
+        send_message(db['report'])
     db['need_report'] = False
     scheduler.run()
 
