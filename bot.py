@@ -194,14 +194,6 @@ def update():
 def report_forwards():
     global db
 
-    db['report'] = ''
-
-    with open('data.json') as data:
-        data = json.load(data)
-        db['data']['forward_list'] = data['forwardList']
-        print(len(db['data']['forward_list']), 'forwards')
-    print()
-
     request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getChat'
 
     for i in range(len(db['data']['forward_list'])):
@@ -524,8 +516,8 @@ def send_report():
 def initial_startup():
     global scheduler
 
-    report_forwards()
     update()
+    report_forwards()
     save_data()
     schedule_firstupdate()
     send_report()
