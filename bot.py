@@ -30,6 +30,17 @@ db = {
 scheduler = sched.scheduler(time.time, time.sleep)
 
 
+def print_username(message):
+    # Prints the username of the user who sent the message.
+    if 'from' in message:
+        if 'username' in message['from']:
+            print('(from ', message['from']['username'], ')', sep='')
+        else:
+            print('(from ', message['from']['first_name'], ' (', message['message']['from']['id'], '))', sep='')
+    else:
+        print('From unknown user')
+
+
 def update():
     print('Updating\n--------')
     # Pull in the db.
@@ -101,6 +112,7 @@ def update():
     print('  - Updates:', len(db['data']['update_list']))
 
     while len(db['data']['update_list']) > 0:
+
         for i in range(len(db['data']['update_list'])):
             # Dumps the list of updates to the console.
             # print('update_id:', db['data']['update_list'][i]['update_id'], '|', end=' ')
@@ -120,65 +132,34 @@ def update():
                         else:
                             db['data']['files'].append(db['data']['update_list'][i]['message']['document'])
                             print('file added', end=' ')
-                            if 'from' in db['data']['update_list'][i]['message']:
-                                if 'username' in db['data']['update_list'][i]['message']['from']:
-                                    print('(from ', db['data']['update_list'][i]['message']['from']['username'], ')', sep='')
-                                else:
-                                    print('(from ', db['data']['update_list'][i]['message']['from']['first_name'], ' (',
-                                          db['data']['update_list'][i]['message']['from']['id'], '))', sep='')
-                            else:
-                                print()
+                            print_username(db['data']['update_list'][i]['message'])
                     else:
                         # MESSAGE DOESN'T CONTAIN A FILE, PUT PARSE CODE HERE
                         print('message does not contain a file', end=' ')
                         if 'from' in db['data']['update_list'][i]['message']:
-                            if 'username' in db['data']['update_list'][i]['message']['from']:
-                                print('(from ', db['data']['update_list'][i]['message']['from']['username'], ')', sep='')
-                            else:
-                                print('(from ', db['data']['update_list'][i]['message']['from']['first_name'], ' (',
-                                      db['data']['update_list'][i]['message']['from']['id'], '))', sep='')
-                        else:
-                            print()
+                            print_username(db['data']['update_list'][i]['message'])
                 else:
                     print('update not from admin', end=' ')
                     if 'new_chat_member' in db['data']['update_list'][i]['message']:
                         if db['data']['update_list'][i]['message']['new_chat_member']['id'] == db['config']['credentials']['bot_id']:
                             db['data']['forward_list'].append(db['data']['update_list'][i]['message']['chat']['id'])
                             if 'username' in db['data']['update_list'][i]['message']['from']:
-                                print('\nadded ', db['data']['update_list'][i]['message']['chat']['title'], ' (',
-                                      db['data']['update_list'][i]['message']['chat']['id'], ') to forwardList by ',
-                                      str(db['data']['update_list'][i]['message']['from']['username']), ' (',
-                                      db['data']['update_list'][i]['message']['from']['id'], ')', sep='')
-                                db['report'] = db['report'] + '`added `' + str(
-                                    db['data']['update_list'][i]['message']['chat']['title']) + '` to forwardList by `%40' + str(
-                                    db['data']['update_list'][i]['message']['from']['username']) + '\n'  # %40 = @
+                                print('\nadded ', db['data']['update_list'][i]['message']['chat']['title'], ' (', db['data']['update_list'][i]['message']['chat']['id'], ') to forwardList by ', str(db['data']['update_list'][i]['message']['from']['username']), ' (', db['data']['update_list'][i]['message']['from']['id'], ')', sep='')
+                                db['report'] = db['report'] + '`added `' + str(db['data']['update_list'][i]['message']['chat']['title']) + '` to forwardList by `%40' + str(db['data']['update_list'][i]['message']['from']['username']) + '\n'  # %40 = @
                             else:
-                                print('\nadded ', db['data']['update_list'][i]['message']['chat']['title'], ' (',
-                                      db['data']['update_list'][i]['message']['chat']['id'], ') to forwardList by ',
-                                      str(db['data']['update_list'][i]['message']['from']), sep='')
-                                db['report'] = db['report'] + '`added `' + str(
-                                    db['data']['update_list'][i]['message']['chat']['title']) + '` to forwardList by `' + str(
-                                    db['data']['update_list'][i]['message']['from']['first_name']) + ' (' + str(
-                                    db['data']['update_list'][i]['message']['from']['id']) + ')\n'
+                                print('\nadded ', db['data']['update_list'][i]['message']['chat']['title'], ' (', db['data']['update_list'][i]['message']['chat']['id'], ') to forwardList by ', str(db['data']['update_list'][i]['message']['from']), sep='')
+                                db['report'] = db['report'] + '`added `' + str(db['data']['update_list'][i]['message']['chat']['title']) + '` to forwardList by `' + str(db['data']['update_list'][i]['message']['from']['first_name']) + ' (' + str(db['data']['update_list'][i]['message']['from']['id']) + ')\n'
                             db['need_report'] = True
                     elif 'left_chat_member' in db['data']['update_list'][i]['message']:
                         if db['data']['update_list'][i]['message']['left_chat_member']['id'] == db['config']['credentials']['bot_id']:
                             if db['data']['update_list'][i]['message']['chat']['id'] in db['data']['forward_list']:
                                 db['data']['forward_list'].remove(db['data']['update_list'][i]['message']['chat']['id'])
                                 print('\nremoved', db['data']['update_list'][i]['message']['chat']['title'], 'from forwardList')
-                                db['report'] = db['report'] + '`removed `' + str(
-                                    db['data']['update_list'][i]['message']['chat']['title']) + ' `from forwardList`\n'
+                                db['report'] = db['report'] + '`removed `' + str(db['data']['update_list'][i]['message']['chat']['title']) + ' `from forwardList`\n'
                                 db['need_report'] = True
                     else:
-                        if 'from' in db['data']['update_list'][i]['message']:
-                            if 'username' in db['data']['update_list'][i]['message']['from']:
-                                print('(from ', db['data']['update_list'][i]['message']['from']['username'], ')', sep='')
-                            else:
-                                print('(from ', db['data']['update_list'][i]['message']['from']['first_name'], ' (',
-                                      db['data']['update_list'][i]['message']['from']['id'], '))', sep='')
-                        else:
-                            print()
-                        print('   ', db['data']['update_list'][i]['message'])
+                        print('Update is from a non-admin user.')
+                        print_username(db['data']['update_list'][i]['message'])
             else:
                 print('update not does not contain message')
                 print(db['data']['update_list'][i])
@@ -317,6 +298,7 @@ def post_photo():
         else:
             print('sending file to telegram, chat_id:' + str(db['config']['credentials']['channel']) + '...', end='')
             if link is not None:
+                # noinspection PyUnresolvedReferences
                 request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendDocument?chat_id=' + str(
                     db['config']['credentials']['channel']) + '&document=' + file_to_send['file_id'] + '&caption=' + link.replace('&', '%26')
             else:
@@ -498,6 +480,25 @@ def is_int(s):
         return True
     except ValueError:
         return False
+
+
+def send_message(message):
+    # Sends a message to all admin users.
+    global db
+
+    if len(message) > 0:
+        request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendMessage'
+        for i in range(len(db['config']['admins'])):
+            request = requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=' + message + '&parse_mode=Markdown')
+            response = request.json()
+            if response['ok']:
+                print('Message sent to', db['config']['admins'][i])
+            else:
+                print('Message not sent to', db['config']['admins'][i])
+                if 'description' in response:
+                    print('reason:', response['description'])
+                print('raw response:', response)
+                print('raw request:', request.url)
 
 
 def send_report():
