@@ -90,8 +90,21 @@ def save_data():
     print('data.json updated')
 
 
+def get_bot_updates(flush=False):
+    global db
+
+    request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getUpdates'
+    if flush:
+        request = request + '?offset=' + str((db['data']['update_list'][len(db['data']['update_list']) - 1]['update_id']) + 1)
+    response = requests.get(request)
+    response = response.json()
+    if response['ok']:
+        db['data']['update_list'] = response['result']
+    else:
+        print('Failed to get updates.')
+
+
 def update():
-    print('Updating\n--------')
     # Pull in the db.
     global db
 
@@ -103,20 +116,9 @@ def update():
     load_data()
 
     # Get the latest updates from the Telegram bot.
-    print('- Getting updates')
-    request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getUpdates'
-    response = requests.get(request)
-    response = response.json()
-    if response['ok']:
-        print('  - Response OK.')
-        db['data']['update_list'] = response['result']
-    else:
-        print('  - Response not OK.')
-    # BREAK
+    get_bot_updates()
 
-    # Print the number of updates received.
-    print('  - Updates:', len(db['data']['update_list']))
-
+    # If there are updates, process them.
     while len(db['data']['update_list']) > 0:
 
         for i in range(len(db['data']['update_list'])):
@@ -169,22 +171,11 @@ def update():
             else:
                 print('update not does not contain message')
                 print(db['data']['update_list'][i])
+
+        # If there are extraneous updates, flush the update list.
         if len(db['data']['update_list']) > 0:
-            mostrecentupdate = db['data']['update_list'][len(db['data']['update_list']) - 1]['update_id']
-            print('clearing update_list through to update_id', mostrecentupdate + 1)
-            request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getUpdates'
-            response = requests.get(request + '?offset=' + str(mostrecentupdate + 1))
-            response = response.json()
-            if response['ok']:
-                db['data']['update_list'] = response['result']
-                print(' updates:', len(db['data']['update_list']))
-                if len(db['data']['update_list']) <= 0:
-                    print('...success')
-                else:
-                    print('update_list not empty, repeating...')
-            else:
-                print('failed')
-                db['need_report'] = True
+            get_bot_updates(True)
+
     else:
         print('update_list empty')
 
