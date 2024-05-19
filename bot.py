@@ -479,18 +479,6 @@ def send_message(message):
                 requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=NO PHOTOS IN QUEUE&parse_mode=Markdown')
 
 
-def initial_startup():
-    global scheduler
-
-    update()
-    report_forwards()
-    save_data()
-    schedule_firstupdate()
-    send_message(db['report'])
-
-    scheduler.run()
-
-
 def scheduled_post():
     print()
     global scheduler
@@ -506,4 +494,17 @@ def scheduled_post():
     scheduler.run()
 
 
-initial_startup()
+def main():
+    global scheduler
+
+    update()
+    report_forwards()
+    save_data()
+    schedule_firstupdate()
+    send_message(db['report'])
+
+    scheduler.run()
+
+
+if __name__ == '__main__':
+    main()
