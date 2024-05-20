@@ -371,82 +371,34 @@ def post_photo():
             db['data']['forward_list'].remove(remove_list[i])
 
 
-def schedule_nextupdate():
-    print()
-    # reinitialize all the lists and variables as global
-    global db
-    global scheduler
+def time_string(the_time):
+    # Converts a time tuple to a string with padding.
+    string_time = time.localtime(the_time).tm_hour < 10 and '0' or ''
+    string_time = string_time + str(time.localtime(the_time).tm_hour) + ':'
+    string_time = string_time + str(time.localtime(the_time).tm_min < 10 and '0' or '')
+    string_time = string_time + str(time.localtime(the_time).tm_min)
 
-    nextupdate = currenttime = (time.time() + ((60 * 60) * db['config']['timezone']))
-    nextupdate = (nextupdate - (nextupdate % (db['config']['delay'] * 60))) + (db['config']['delay'] * 60)
-
-    noowtime = ''
-    if time.localtime(currenttime).tm_hour < 10:
-        noowtime = noowtime + '0'
-    noowtime = noowtime + str(time.localtime(currenttime).tm_hour) + ':'
-    if time.localtime(currenttime).tm_min < 10:
-        noowtime = noowtime + '0'
-    noowtime = noowtime + str(time.localtime(currenttime).tm_min)
-
-    nexttime = ''
-    if time.localtime(nextupdate).tm_hour < 10:
-        nexttime = nexttime + '0'
-    nexttime = nexttime + str(time.localtime(nextupdate).tm_hour) + ':'
-    if time.localtime(nextupdate).tm_min < 10:
-        nexttime = nexttime + '0'
-    nexttime = nexttime + str(time.localtime(nextupdate).tm_min)
-
-    db['report'] = db['report'] + '\n`current delay: `' + str(db['config']['delay']) + '` minutes\ncurrent queue: `' + str(
-        len(db['data']['files'])) + '`\n current time: `' + noowtime + '`\n  next update: `' + nexttime
-    if len(db['data']['files']) < 10:
-        db['report'] = db['report'] + '\nLOW ON PHOTOS'
-        db['need_report'] = True
-    # db['report'] = db['report'] + '\n`next photo in queue: `'
-
-    print('current time:', noowtime)
-    print(' next update:', nexttime)
-    print()
-    print('scheduling update for', db['config']['delay'], 'minutes from now')
-    # scheduler.enter((db['config']['delay'] * 60), 1, scheduled_post, ())
-    scheduler.enterabs((nextupdate - (3600 * db['config']['timezone'])), 1, scheduled_post, ())
+    return string_time
 
 
-def schedule_firstupdate():
-    print()
-    # reinitialize all the lists and variables as global
-    global db
-    global scheduler
+def schedule_post(timezone: int, delay: int):
+    # Get the current time, adjusted for timezone.
+    current_time = (time.time() + ((60 * 60) * timezone))
 
-    nextupdate = currenttime = (time.time() + ((60 * 60) * db['config']['timezone']))
-    nextupdate = (nextupdate - (nextupdate % (db['config']['delay'] * 60))) + (db['config']['delay'] * 60)
+    # Calculate the next update time.
+    next_update = (current_time - (current_time % (delay * 60))) + (delay * 60)
 
-    noowtime = ''
-    if time.localtime(currenttime).tm_hour < 10:
-        noowtime = noowtime + '0'
-    noowtime = noowtime + str(time.localtime(currenttime).tm_hour) + ':'
-    if time.localtime(currenttime).tm_min < 10:
-        noowtime = noowtime + '0'
-    noowtime = noowtime + str(time.localtime(currenttime).tm_min)
+    # Notify admins of the scheduling results.
+    # TODO: Limit the frequency of these messages?
+    send_message(
+        'Scheduling post each ' + str(delay) + ' minutes. ' +
+        'The time is now ' + time_string(current_time) + '. ' +
+        'The next post will be at ' + time_string(next_update) + '. ' +
+        'There are ' + str(len(db['data']['files'])) + ' queued posts.'
+    )
 
-    nexttime = ''
-    if time.localtime(nextupdate).tm_hour < 10:
-        nexttime = nexttime + '0'
-    nexttime = nexttime + str(time.localtime(nextupdate).tm_hour) + ':'
-    if time.localtime(nextupdate).tm_min < 10:
-        nexttime = nexttime + '0'
-    nexttime = nexttime + str(time.localtime(nextupdate).tm_min)
-
-    db['report'] = db['report'] + '`  bot started`\n`current delay: `' + str(db['config']['delay']) + '` minutes`\n`current queue: `' + str(
-        len(db['data']['files'])) + '\n`     forwards: `' + str(
-        len(db['data']['forward_list'])) + '\n` current time: `' + noowtime + '\n`  next update: `' + nexttime
-    # db['report'] = db['report'] + '\n`next photo in queue: `'
-
-    print('current time:', noowtime)
-    print('next update: ', nexttime)
-    print('bot started. scheduling first post...')
-    print('scheduling update for', nexttime)
-    # post_photo()
-    scheduler.enterabs((nextupdate - (3600 * db['config']['timezone'])), 1, scheduled_post, ())
+    # Use the scheduler to trigger the next post.
+    scheduler.enterabs((next_update - (3600 * timezone)), 1, scheduled_post, ())
 
 
 # https://stackoverflow.com/a/1267145/8197207
@@ -478,7 +430,7 @@ def scheduled_post():
     update()
     post_photo()
     save_data()
-    schedule_nextupdate()
+    schedule_post(db['config']['timezone'], db['config']['delay'])
     if db['need_report']:
         send_message(db['report'])
     db['need_report'] = False
@@ -491,7 +443,7 @@ def main():
     update()
     report_forwards()
     save_data()
-    schedule_firstupdate()
+    schedule_post(db['config']['timezone'], db['config']['delay'])
     send_message(db['report'])
 
     scheduler.run()
