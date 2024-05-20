@@ -104,15 +104,13 @@ def get_bot_updates(flush=False):
         print('Failed to get updates.')
 
 
-def update():
-    # Pull in the db.
-    global db
+def update_data():
+    # Loads all config values and data from disk and checks the Telegram bot for new messages.
 
     # Clear the report.
     db['report'] = ""
 
-    # Load the config and data JSON files.
-    load_config()
+    # Load the JSON data.
     load_data()
 
     # Get the latest updates from the Telegram bot.
@@ -179,29 +177,8 @@ def update():
     else:
         print('update_list empty')
 
-    print()
 
-
-def report_forwards():
-    global db
-
-    request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getChat'
-
-    for i in range(len(db['data']['forward_list'])):
-        response = requests.get(request + '?chat_id=' + str(db['data']['forward_list'][i]))
-        response = response.json()
-        if response['ok']:
-            print('forward[', str(i), ']: (', str(response['result']['id']), ') ', response['result']['title'], sep='')
-            db['report'] = db['report'] + '`forward[' + str(i) + ']: `' + response['result']['title'] + '\n'
-        else:
-            print('forward[', str(i), ']: (', str(db['data']['forward_list'][i]), ') ', response['description'], sep='')
-
-    print()
-
-
-
-def post_photo():
-    print()
+def post_image():
     global db
     remove_list = []
     is_image = True
@@ -370,9 +347,12 @@ def post_photo():
         for i in range(len(remove_list)):
             db['data']['forward_list'].remove(remove_list[i])
 
+    # Save changes to the data file to disk.
+    save_data()
+
 
 def time_string(the_time):
-    # Converts a time tuple to a string with padding.
+    # Converts a time float to a string with padding.
     string_time = time.localtime(the_time).tm_hour < 10 and '0' or ''
     string_time = string_time + str(time.localtime(the_time).tm_hour) + ':'
     string_time = string_time + str(time.localtime(the_time).tm_min < 10 and '0' or '')
@@ -381,24 +361,24 @@ def time_string(the_time):
     return string_time
 
 
-def schedule_post(timezone: int, delay: int):
+def schedule_next_image():
     # Get the current time, adjusted for timezone.
-    current_time = (time.time() + ((60 * 60) * timezone))
+    current_time = (time.time() + ((60 * 60) * db['config']['timezone']))
 
     # Calculate the next update time.
-    next_update = (current_time - (current_time % (delay * 60))) + (delay * 60)
+    next_update = (current_time - (current_time % (db['config']['delay'] * 60))) + (db['config']['delay'] * 60)
 
     # Notify admins of the scheduling results.
     # TODO: Limit the frequency of these messages?
     send_message(
-        'Scheduling post each ' + str(delay) + ' minutes. ' +
+        'Scheduling post each ' + str(db['config']['delay']) + ' minutes. ' +
         'The time is now ' + time_string(current_time) + '. ' +
         'The next post will be at ' + time_string(next_update) + '. ' +
         'There are ' + str(len(db['data']['files'])) + ' queued posts.'
     )
 
     # Use the scheduler to trigger the next post.
-    scheduler.enterabs((next_update - (3600 * timezone)), 1, scheduled_post, ())
+    scheduler.enterabs((next_update - (3600 * db['config']['timezone'])), 1, post_scheduled_image, ())
 
 
 # https://stackoverflow.com/a/1267145/8197207
@@ -412,40 +392,42 @@ def is_int(s):
 
 def send_message(message):
     # Sends a message to all admin users.
-    global db
 
     if len(message) > 0:
         request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendMessage'
         for i in range(len(db['config']['admins'])):
             requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=' + message + '&parse_mode=Markdown')
+
+            # Inform admins if there are no images left in the queue.
             if len(db['data']['files']) == 0:
                 requests.get(request + '?chat_id=' + str(db['config']['admins'][i]) + '&text=NO PHOTOS IN QUEUE&parse_mode=Markdown')
 
 
-def scheduled_post():
-    print()
-    global scheduler
-    global db
+def post_scheduled_image():
+    # Update our data files and get new messages from the Telegram bot.
+    update_data()
 
-    update()
-    post_photo()
-    save_data()
-    schedule_post(db['config']['timezone'], db['config']['delay'])
-    if db['need_report']:
-        send_message(db['report'])
-    db['need_report'] = False
+    # Post the next image in the queue to the Telegram channel
+    post_image()
+
+    # Schedule our next image post.
+    schedule_next_image()
+
+    # Run the scheduler.
     scheduler.run()
 
 
 def main():
-    global scheduler
+    # Get the configuration values.
+    load_config()
 
-    update()
-    report_forwards()
-    save_data()
-    schedule_post(db['config']['timezone'], db['config']['delay'])
-    send_message(db['report'])
+    # Update our data files and get new messages from the Telegram bot.
+    update_data()
 
+    # Schedule our next image post.
+    schedule_next_image()
+
+    # Run the scheduler.
     scheduler.run()
 
 
