@@ -178,46 +178,65 @@ def update_data():
         print('update_list empty')
 
 
+def download_file(file_id, mime_type):
+    # Download the image from the Telegram bot.
+    filename = 'image'
+
+    # Verify the download
+    request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getFile?file_id=' + file_id
+    response = requests.get(request)
+    response = response.json()
+    if response['ok']:
+        # Generate the filename using the mime_type
+        if 'image' in mime_type:
+            is_image = True
+            filename = filename + '.' + mime_type[6:]
+        else:
+            is_image = False
+            mime_type = mime_type.split('/')
+            filename = filename + '.' + mime_type[1]
+
+        # Download the image data and save to disk.
+        request = 'https://api.telegram.org/file/bot' + db['config']['credentials']['access_token'] + '/' + response['result']['file_path']
+        response = requests.get(request, stream=True)  # stream=True IS REQUIRED
+        if response.status_code == 200:
+            with open(filename, 'wb') as image:
+                shutil.copyfileobj(response.raw, image)
+
+            return True, filename, is_image
+        else:
+            send_message('Downloading image failed.')
+            return False, '', False
+    else:
+        send_message('Downloading image failed.')
+        return False, '', False
+
+
+
 def post_image():
-    global db
     remove_list = []
-    is_image = True
     forward_message = True
 
     if len(db['data']['files']) > 0:
-        file_to_send = db['data']['files'][0]
-        filename = 'image'
-        filecaption = ''
         link = None
-        request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getFile?file_id=' + file_to_send['file_id']
-        # print(request)
-        response = requests.get(request)
-        response = response.json()
-        if response['ok']:
-            if 'image' in file_to_send['mime_type']:
-                filename = filename + '.' + file_to_send['mime_type'][6:]  # cuts off the first 6 characters ('image/')
-                try:
-                    filecaption = file_to_send['caption']
-                except KeyError:
-                    filecaption = ''
 
-            else:
-                is_image = False
-                mime_type = file_to_send['mime_type'].split('/')
-                filename = filename + '.' + mime_type[1]  # uses anything found after the slash
-            print('downloading...', end='')
-            request = 'https://api.telegram.org/file/bot' + db['config']['credentials']['access_token'] + '/' + response['result']['file_path']
-            response = requests.get(request, stream=True)  # stream=True IS REQUIRED
-            print('done.', end='')
-            if response.status_code == 200:
-                with open(filename, 'wb') as image:
-                    shutil.copyfileobj(response.raw, image)
-            print(' saved as ' + filename)
-        else:
-            print('response not ok')
-            db['report'] = db['report'] + '`post failed.`\n`photo re-added to queue.`'
-            return  # we don't have a sendable file, so just return
+        # Get the next file in the queue.
+        file_to_send = db['data']['files'][0]
 
+        # Set the caption, if present.
+        try:
+            filecaption = file_to_send['caption']
+        except KeyError:
+            filecaption = ''
+
+        # Download the image from the Telegram bot.
+        download_ok, filename, is_image = download_file(file_to_send['file_id'], file_to_send['mime_type'])
+
+        # Abort on download error.
+        if not download_ok:
+            return
+
+        # Open the image from disk.
         image_file = open(filename, 'rb')
 
         # send to telegram
@@ -249,6 +268,7 @@ def post_image():
                 db['need_report'] = True
                 forward_message = False
         else:
+            # Media is NOT an image.
             print('sending file to telegram, chat_id:' + str(db['config']['credentials']['channel']) + '...', end='')
             if link is not None:
                 # noinspection PyUnresolvedReferences
