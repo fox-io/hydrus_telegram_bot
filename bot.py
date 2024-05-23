@@ -104,6 +104,25 @@ def get_bot_updates(flush=False):
         print('Failed to get updates.')
 
 
+def process_file_message(message):
+    # Process the file message from the Telegram bot.
+
+    # Get the file caption, if present.
+    if 'caption' in message:
+        message['document']['caption'] = message['caption']
+
+    # Check if the file is already in our queue.
+    if message['document'] in db['data']['files']:
+        print('Skipping previously added file.')
+    else:
+        # Get the file caption, if present.
+        if 'caption' in message:
+            message['document']['caption'] = message['caption']
+
+        # Add the file to the queue.
+        db['data']['files'].append(message['document'])
+
+
 def update_data():
     # Loads all config values and data from disk and checks the Telegram bot for new messages.
 
@@ -126,26 +145,14 @@ def update_data():
             if 'message' in db['data']['update_list'][i]:
                 if db['data']['update_list'][i]['message']['chat']['id'] in db['config']['admins']:
                     if 'document' in db['data']['update_list'][i]['message']:
-                        # Save the caption to the document json object
-                        if 'caption' in db['data']['update_list'][i]['message']:
-                            db['data']['update_list'][i]['message']['document']['caption'] = db['data']['update_list'][i]['message']['caption']
-
-                        # Dump the update information to console.
-                        # print(json.dumps(db['data']['update_list'][i]['message']['document'], indent=2, sort_keys=True))
-
-                        if db['data']['update_list'][i]['message']['document'] in db['data']['files']:
-                            print('Skipping previously added file.')
-                        else:
-                            db['data']['files'].append(db['data']['update_list'][i]['message']['document'])
-                            print('file added', end=' ')
-                            print_username(db['data']['update_list'][i]['message'])
+                        process_file_message(db['data']['update_list'][i]['message'])
                     else:
                         # MESSAGE DOESN'T CONTAIN A FILE, PUT PARSE CODE HERE
                         print('message does not contain a file', end=' ')
                         if 'from' in db['data']['update_list'][i]['message']:
                             print_username(db['data']['update_list'][i]['message'])
                 else:
-                    print('update not from admin', end=' ')
+                    # Update is from a non-admin user. If the update is from the bot, add/remove the chat to the forward list.
                     if 'new_chat_member' in db['data']['update_list'][i]['message']:
                         if db['data']['update_list'][i]['message']['new_chat_member']['id'] == db['config']['credentials']['bot_id']:
                             db['data']['forward_list'].append(db['data']['update_list'][i]['message']['chat']['id'])
@@ -210,7 +217,6 @@ def download_file(file_id, mime_type):
     else:
         send_message('Downloading image failed.')
         return False, '', False
-
 
 
 def post_image():
