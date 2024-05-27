@@ -147,10 +147,7 @@ def update_data():
                     if 'document' in db['data']['update_list'][i]['message']:
                         process_file_message(db['data']['update_list'][i]['message'])
                     else:
-                        # MESSAGE DOESN'T CONTAIN A FILE, PUT PARSE CODE HERE
-                        print('message does not contain a file', end=' ')
-                        if 'from' in db['data']['update_list'][i]['message']:
-                            print_username(db['data']['update_list'][i]['message'])
+                        send_message('Received a message from an admin which does not contain a document.')
                 else:
                     # Update is from a non-admin user. If the update is from the bot, add/remove the chat to the forward list.
                     if 'new_chat_member' in db['data']['update_list'][i]['message']:
