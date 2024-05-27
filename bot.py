@@ -301,6 +301,10 @@ def post_image():
                 db['need_report'] = True
                 forward_message = False
 
+                # Remove the file from the queue.
+                # TODO: Determine what is wrong with failed post files. File size? File type?
+                db['data']['files'].pop(0)
+
         # FORWARDING PHOTO
         if forward_message:
             print('forwarding photo to', len(db['data']['forward_list']), 'chats...', end='')
