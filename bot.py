@@ -26,6 +26,8 @@ db = {
     'need_report': False
 }
 
+debug_mode = False
+
 # Initialize the scheduler.
 scheduler = sched.scheduler(time.time, time.sleep)
 
@@ -209,10 +211,10 @@ def download_file(file_id, mime_type):
 
             return True, filename, is_image
         else:
-            send_message('Downloading image failed.')
+            send_message('Downloading image failed.', True)
             return False, '', False
     else:
-        send_message('Downloading image failed.')
+        send_message('Downloading image failed.', True)
         return False, '', False
 
 
@@ -221,7 +223,7 @@ def post_image():
     forward_message = True
 
     if len(db['data']['files']) > 0:
-        send_message('Attempting to post image.')
+        send_message('Attempting to post image.', True)
         link = None
 
         # Get the next file in the queue.
@@ -238,27 +240,32 @@ def post_image():
 
         # Abort on download error.
         if not download_ok:
-            send_message('Failed to download image.')
+            send_message('Failed to download image.', True)
             return
 
-        send_message('Image downloaded successfully.')
+        send_message('Image downloaded successfully.', True)
 
         # Open the image from disk.
         image_file = open(filename, 'rb')
 
         # send to telegram
         if is_image:
-            send_message('Sending photo to Telegram channel.')
+            send_message('Sending photo to Telegram channel.', True)
             request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendPhoto'
             telegramfile = {'photo': image_file}
+
+            send_message(request)
+
             if filecaption is not None:
                 sent_file = requests.get(
                     request + '?chat_id=' + str(db['config']['credentials']['channel']) + '&caption=' + filecaption.replace('&', '%26'),
                     files=telegramfile)
             else:
                 sent_file = requests.get(request + '?chat_id=' + str(db['config']['credentials']['channel']), files=telegramfile)
+
+
             if sent_file.json()['ok']:
-                send_message('Photo sent successfully.')
+                send_message('Photo sent successfully.', True)
                 sent_file = sent_file.json()
 
                 db['report'] = db['report'] + '`telegram...success.`'
@@ -268,15 +275,16 @@ def post_image():
                 db['data']['used_ids'].append(sent_file['result']['photo'][-1]['file_id'])
                 db['data']['files'].pop(0)
             else:
-                send_message('Failed to send photo to Telegram channel.')
+                send_message('Failed to send photo to Telegram channel.', True)
 
                 db['report'] = db['report'] + '`post failed.`\n`photo re-added to queue.`'
                 db['need_report'] = True
 
                 forward_message = False
+                db['data']['files'].pop(0)
         else:
             # Media is NOT an image.
-            send_message('Attempting to send non-image file to Telegram channel.')
+            send_message('Attempting to send non-image file to Telegram channel.', True)
 
             if link is not None:
                 # noinspection PyUnresolvedReferences
@@ -288,7 +296,7 @@ def post_image():
 
             sent_file = requests.get(request)
             if sent_file.json()['ok']:
-                send_message('Non-image file sent successfully.')
+                send_message('Non-image file sent successfully.', True)
                 sent_file = sent_file.json()
                 db['report'] = db['report'] + '`telegram...success.`'
                 if len(db['data']['files']) <= 10:
@@ -298,9 +306,8 @@ def post_image():
                 db['data']['files'].pop(0)
                 print('success.')
             else:
-                send_message('Failed to send non-image file to Telegram channel.')
+                send_message('Failed to send non-image file to Telegram channel.', True)
 
-                print(sent_file.json())
                 db['report'] = db['report'] + '`post failed.`\n`photo re-added to queue.`'
                 db['need_report'] = True
                 forward_message = False
@@ -311,7 +318,7 @@ def post_image():
 
         # FORWARDING PHOTO
         if forward_message:
-            send_message('Attempting to forward photo to chats.')
+            send_message('Attempting to forward photo to chats.', True)
 
             successful_forwards = 0
             for i in range(len(db['data']['forward_list'])):
@@ -320,7 +327,7 @@ def post_image():
                     sent_file['result']['message_id']))
                 response = request.json()
                 if response['ok']:
-                    send_message('Forwarded photo successfully.')
+                    send_message('Forwarded photo successfully.', True)
                     successful_forwards = successful_forwards + 1
                 elif 'description' in response:
                     if 'Forbidden' in response['description']:
@@ -343,7 +350,7 @@ def post_image():
                             db['need_report'] = True
                             print('failed')
                 else:
-                    send_message('Failed to forward photo to chats.')
+                    send_message('Failed to forward photo to chats.', True)
                     getchat = requests.get(
                         'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getChat?chat_id=' + str(db['data']['forward_list'][i]))
                     getchat = getchat.json()
@@ -381,7 +388,7 @@ def post_image():
         db['need_report'] = True
 
     if len(remove_list) > 0:
-        send_message('Removing chats from forward list.')
+        send_message('Removing chats from forward list.', True)
         for i in range(len(remove_list)):
             db['data']['forward_list'].remove(remove_list[i])
 
@@ -409,7 +416,7 @@ def schedule_next_image():
     # Notify admins of the scheduling results.
     # TODO: Limit the frequency of these messages?
     send_message(
-        'Scheduling post each ' + str(db['config']['delay']) + ' minutes. ' +
+        'Scheduling post every ' + str(db['config']['delay']) + ' minutes. ' +
         'The time is now ' + time_string(current_time) + '. ' +
         'The next post will be at ' + time_string(next_update) + '. ' +
         'There are ' + str(len(db['data']['files'])) + ' queued posts.'
@@ -428,8 +435,10 @@ def is_int(s):
         return False
 
 
-def send_message(message):
+def send_message(message, is_debug=False):
     # Sends a message to all admin users.
+    if is_debug and not debug_mode:
+        return
 
     if len(message) > 0:
         request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendMessage'
