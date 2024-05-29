@@ -254,7 +254,7 @@ def post_image():
             request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendPhoto'
             telegramfile = {'photo': image_file}
 
-            send_message(request)
+            send_message(request, True)
 
             if filecaption is not None:
                 sent_file = requests.get(
