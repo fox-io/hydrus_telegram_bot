@@ -221,6 +221,7 @@ def post_image():
     forward_message = True
 
     if len(db['data']['files']) > 0:
+        send_message('Attempting to post image.')
         link = None
 
         # Get the next file in the queue.
@@ -237,14 +238,17 @@ def post_image():
 
         # Abort on download error.
         if not download_ok:
+            send_message('Failed to download image.')
             return
+
+        send_message('Image downloaded successfully.')
 
         # Open the image from disk.
         image_file = open(filename, 'rb')
 
         # send to telegram
         if is_image:
-            print('sending photo to telegram, chat_id:' + str(db['config']['credentials']['channel']) + '...', end='')
+            send_message('Sending photo to Telegram channel.')
             request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendPhoto'
             telegramfile = {'photo': image_file}
             if filecaption is not None:
@@ -254,25 +258,26 @@ def post_image():
             else:
                 sent_file = requests.get(request + '?chat_id=' + str(db['config']['credentials']['channel']), files=telegramfile)
             if sent_file.json()['ok']:
+                send_message('Photo sent successfully.')
                 sent_file = sent_file.json()
+
+                db['report'] = db['report'] + '`telegram...success.`'
                 if len(db['data']['files']) <= 10:
-                    db['report'] = db['report'] + '`telegram...success.`'
                     db['need_report'] = True
-                else:
-                    db['report'] = db['report'] + '`telegram...success.`'
+
                 db['data']['used_ids'].append(sent_file['result']['photo'][-1]['file_id'])
                 db['data']['files'].pop(0)
-                print('success.')
             else:
-                print('sent_file not ok, skipping forwards')
-                print(sent_file.json())
+                send_message('Failed to send photo to Telegram channel.')
+
                 db['report'] = db['report'] + '`post failed.`\n`photo re-added to queue.`'
-                print('failed.')
                 db['need_report'] = True
+
                 forward_message = False
         else:
             # Media is NOT an image.
-            print('sending file to telegram, chat_id:' + str(db['config']['credentials']['channel']) + '...', end='')
+            send_message('Attempting to send non-image file to Telegram channel.')
+
             if link is not None:
                 # noinspection PyUnresolvedReferences
                 request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendDocument?chat_id=' + str(
@@ -280,21 +285,23 @@ def post_image():
             else:
                 request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendDocument?chat_id=' + str(
                     db['config']['credentials']['channel']) + '&document=' + file_to_send['file_id']
+
             sent_file = requests.get(request)
             if sent_file.json()['ok']:
+                send_message('Non-image file sent successfully.')
                 sent_file = sent_file.json()
+                db['report'] = db['report'] + '`telegram...success.`'
                 if len(db['data']['files']) <= 10:
-                    db['report'] = db['report'] + '`telegram...success.`'
                     db['need_report'] = True
-                # else :
-                # db['report'] = db['report'] + '`telegram...success.`'
+
+                db['data']['used_ids'].append(sent_file['result']['document']['file_id'])
                 db['data']['files'].pop(0)
                 print('success.')
             else:
-                print('sent_file not ok, skipping forwards')
+                send_message('Failed to send non-image file to Telegram channel.')
+
                 print(sent_file.json())
                 db['report'] = db['report'] + '`post failed.`\n`photo re-added to queue.`'
-                print('failed.')
                 db['need_report'] = True
                 forward_message = False
 
@@ -304,7 +311,8 @@ def post_image():
 
         # FORWARDING PHOTO
         if forward_message:
-            print('forwarding photo to', len(db['data']['forward_list']), 'chats...', end='')
+            send_message('Attempting to forward photo to chats.')
+
             successful_forwards = 0
             for i in range(len(db['data']['forward_list'])):
                 request = requests.get('https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/forward_message?chat_id=' + str(
@@ -312,8 +320,8 @@ def post_image():
                     sent_file['result']['message_id']))
                 response = request.json()
                 if response['ok']:
+                    send_message('Forwarded photo successfully.')
                     successful_forwards = successful_forwards + 1
-                # print('forward[' + str(i) + '] ok')
                 elif 'description' in response:
                     if 'Forbidden' in response['description']:
                         remove_list.append(db['data']['forward_list'][i])
@@ -335,6 +343,7 @@ def post_image():
                             db['need_report'] = True
                             print('failed')
                 else:
+                    send_message('Failed to forward photo to chats.')
                     getchat = requests.get(
                         'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getChat?chat_id=' + str(db['data']['forward_list'][i]))
                     getchat = getchat.json()
@@ -366,11 +375,13 @@ def post_image():
                     print('\nraw response:', response, end='')
                     print('\nraw command:', request.url)
             db['report'] = db['report'] + '\n` forwarded to: `' + str(successful_forwards) + '` chats`'
-            print('done. ')
     else:
+        send_message('No photos in queue.')
         db['report'] = db['report'] + '`post failed.`\n`no photos in queue.`\nADD PHOTOS IMMEDIATELY'
         db['need_report'] = True
+
     if len(remove_list) > 0:
+        send_message('Removing chats from forward list.')
         for i in range(len(remove_list)):
             db['data']['forward_list'].remove(remove_list[i])
 
