@@ -51,15 +51,15 @@ def load_config():
         print('Loading config')
 
         # Load the config data from the file into a variable.
-        configdata = json.load(config)
+        config_data = json.load(config)
 
         # Save the config values to the db.
-        db['config']['credentials']['access_token'] = configdata['credentials']['telegramAccessToken']
-        db['config']['credentials']['channel'] = configdata['credentials']['telegramChannel']
-        db['config']['credentials']['bot_id'] = configdata['credentials']['telegramBotID']
-        db['config']['admins'] = configdata['admins']
-        db['config']['delay'] = configdata['delay']
-        db['config']['timezone'] = configdata['timezone']
+        db['config']['credentials']['access_token'] = config_data['credentials']['telegramAccessToken']
+        db['config']['credentials']['channel'] = config_data['credentials']['telegramChannel']
+        db['config']['credentials']['bot_id'] = config_data['credentials']['telegramBotID']
+        db['config']['admins'] = config_data['admins']
+        db['config']['delay'] = config_data['delay']
+        db['config']['timezone'] = config_data['timezone']
 
 
 def load_data():
@@ -231,9 +231,9 @@ def post_image():
 
         # Set the caption, if present.
         try:
-            filecaption = file_to_send['caption']
+            file_caption = file_to_send['caption']
         except KeyError:
-            filecaption = ''
+            file_caption = ''
 
         # Download the image from the Telegram bot.
         download_ok, filename, is_image = download_file(file_to_send['file_id'], file_to_send['mime_type'])
@@ -252,16 +252,16 @@ def post_image():
         if is_image:
             send_message('Sending photo to Telegram channel.', True)
             request = 'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/sendPhoto'
-            telegramfile = {'photo': image_file}
+            telegram_file = {'photo': image_file}
 
             send_message(request, True)
 
-            if filecaption is not None:
+            if file_caption is not None:
                 sent_file = requests.get(
-                    request + '?chat_id=' + str(db['config']['credentials']['channel']) + '&caption=' + filecaption.replace('&', '%26'),
-                    files=telegramfile)
+                    request + '?chat_id=' + str(db['config']['credentials']['channel']) + '&caption=' + file_caption.replace('&', '%26'),
+                    files=telegram_file)
             else:
-                sent_file = requests.get(request + '?chat_id=' + str(db['config']['credentials']['channel']), files=telegramfile)
+                sent_file = requests.get(request + '?chat_id=' + str(db['config']['credentials']['channel']), files=telegram_file)
 
 
             if sent_file.json()['ok']:
@@ -339,11 +339,11 @@ def post_image():
                         db['data']['forward_list'][i] = response['parameters']['migrate_to_chat_id']
                         # try again
                         print('\ntrying with new ID...', end='')
-                        secondtry = requests.get(
+                        second_try = requests.get(
                             'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/forward_message?chat_id=' + str(
                                 db['data']['forward_list'][i]) + '&from_chat_id=' + str(db['config']['credentials']['channel']) + '&message_id=' + str(
                                 sent_file['result']['message_id']))
-                        if secondtry.json()['ok']:
+                        if second_try.json()['ok']:
                             successful_forwards = successful_forwards + 1
                             print('success.')
                         else:
@@ -351,22 +351,22 @@ def post_image():
                             print('failed')
                 else:
                     send_message('Failed to forward photo to chats.', True)
-                    getchat = requests.get(
+                    get_chat = requests.get(
                         'https://api.telegram.org/bot' + db['config']['credentials']['access_token'] + '/getChat?chat_id=' + str(db['data']['forward_list'][i]))
-                    getchat = getchat.json()
-                    if getchat['ok']:
+                    get_chat = get_chat.json()
+                    if get_chat['ok']:
                         print('\nforward[' + str(i) + '] failed (chat_id: ' + str(db['data']['forward_list'][i]) + ') ' +
-                              getchat['result']['title'], end='')
+                              get_chat['result']['title'], end='')
                         db['report'] = db['report'] + '\n`forward[`' + str(i) + '`] failed (chat_id: `' + str(
-                            db['data']['forward_list'][i]) + '`) ` ' + getchat['result']['title']
+                            db['data']['forward_list'][i]) + '`) ` ' + get_chat['result']['title']
                         db['need_report'] = True
                     else:
-                        if 'description' in getchat:
-                            print('\nforward[' + str(i) + '] failed (chat_id: ' + str(db['data']['forward_list'][i]) + ') ' + getchat[
+                        if 'description' in get_chat:
+                            print('\nforward[' + str(i) + '] failed (chat_id: ' + str(db['data']['forward_list'][i]) + ') ' + get_chat[
                                 'description'], end='')
                             db['report'] = db['report'] + '\n`forward[`' + str(i) + '`] failed (chat_id: `' + str(
-                                db['data']['forward_list'][i]) + '`) `' + getchat['description']
-                            if 'Forbidden' in getchat['description']:
+                                db['data']['forward_list'][i]) + '`) `' + get_chat['description']
+                            if 'Forbidden' in get_chat['description']:
                                 remove_list.append(db['data']['forward_list'][i])
                                 db['report'] = db['report'] + '\n` removed `' + str(db['data']['forward_list'][i]) + '` from forward list`'
                                 db['need_report'] = True
