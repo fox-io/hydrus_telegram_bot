@@ -284,7 +284,7 @@ class YiffBot:
                             elif 'e621' in link.netloc:
                                 website = 'e621'
                             elif 'reddit' in link.netloc:
-                                subreddit_match = re.search(self.subreddit_regex, link.geturl())
+                                subreddit_match = re.search(self.subreddit_regex, link.geturl(), re.IGNORECASE)
                                 website = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
                             else:
                                 website = link.netloc
