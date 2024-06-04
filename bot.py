@@ -3,6 +3,8 @@ import requests
 import sched
 import time
 import shutil
+import re
+from urllib.parse import urlparse
 
 # Initialize the global variable db.
 db = {
@@ -292,26 +294,41 @@ def post_image():
             channel = str(db['config']['credentials']['channel'])
 
             if file_caption is not None:
-                # Create an InlineKeyboardMarkup object.
-                keyboard = {'inline_keyboard': [[]]}
+
+                # Build an InlineKeyboard list of buttons for URLs in the caption.
+                keyboard = {'inline_keyboard': []}
 
                 # Extract URLs.
+                url_column = 0
+                url_row = -1
+
                 for line in file_caption.split('\n'):
-                    if 'furaffinity' in line:
-                        keyboard['inline_keyboard'][0].append({
-                            'text': 'Furaffinity',
-                            'url': line
+                    if 'http' in line:
+                        if url_column == 0:
+                            keyboard['inline_keyboard'].append([])
+                            url_row += 1
+                        link = urlparse(line)
+
+                        # Pretty print known site names.
+                        if 'furaffinity' in link.netloc:
+                            website = 'Furaffinity'
+                        elif 'e621' in link.netloc:
+                            website = 'e621'
+                        elif 'reddit' in link.netloc:
+                            subreddit_regex = "/(r/[a-z0-9][_a-z0-9]{2,20})/"
+                            subreddit_match = re.search(subreddit_regex, link.geturl())
+                            website = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
+                        else:
+                            website = link.netloc
+
+                        url = link.geturl()
+
+                        keyboard['inline_keyboard'][url_row].append({
+                            'text': website,
+                            'url': url
                         })
-                    elif 'e621' in line:
-                        keyboard['inline_keyboard'][0].append({
-                            'text': 'e621',
-                            'url': line
-                        })
-                    elif 'reddit' in line:
-                        keyboard['inline_keyboard'][0].append({
-                            'text': 'Reddit',
-                            'url': line
-                        })
+
+                        url_column = url_column == 0 and 1 or 0
 
                 print(keyboard)
                 # caption = file_caption.replace('&', '%26')
