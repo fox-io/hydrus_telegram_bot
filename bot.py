@@ -292,8 +292,30 @@ def post_image():
             channel = str(db['config']['credentials']['channel'])
 
             if file_caption is not None:
-                caption = file_caption.replace('&', '%26')
-                request = api_url('sendPhoto', '?chat_id=' + channel + '&caption=' + caption, False)
+                # Create an InlineKeyboardMarkup object.
+                keyboard = {'inline_keyboard': [[]]}
+
+                # Extract URLs.
+                for line in file_caption.split('\n'):
+                    if 'furaffinity' in line:
+                        keyboard['inline_keyboard'][0].append({
+                            'text': 'Furaffinity',
+                            'url': line
+                        })
+                    elif 'e621' in line:
+                        keyboard['inline_keyboard'][0].append({
+                            'text': 'e621',
+                            'url': line
+                        })
+                    elif 'reddit' in line:
+                        keyboard['inline_keyboard'][0].append({
+                            'text': 'Reddit',
+                            'url': line
+                        })
+
+                print(keyboard)
+                # caption = file_caption.replace('&', '%26')
+                request = api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(keyboard), False)
             else:
                 request = api_url('sendPhoto', '?chat_id=' + channel, False)
 
