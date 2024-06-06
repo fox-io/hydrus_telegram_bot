@@ -164,47 +164,51 @@ class YiffBot:
                 self.remove_tag([file_id], self.queue_tag)
                 self.add_tag([file_id], self.posted_tag)
 
+    def build_caption_buttons(self, caption: str):
+        if caption is not None:
+            keyboard = {'inline_keyboard': []}
+            url_column = 0
+            url_row = -1
+            for line in caption.split(','):
+                if 'http' in line:
+                    if url_column == 0:
+                        keyboard['inline_keyboard'].append([])
+                        url_row += 1
+                    link = urlparse(line)
+                    # Pretty print known site names.
+                    if 'furaffinity' in link.netloc:
+                        website = 'Furaffinity'
+                    elif 'e621' in link.netloc:
+                        website = 'e621'
+                    elif 'reddit' in link.netloc:
+                        subreddit_match = re.search(self.subreddit_regex, link.geturl(), re.IGNORECASE)
+                        website = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
+                    else:
+                        website = link.netloc
+                    url = link.geturl()
+                    keyboard['inline_keyboard'][url_row].append({
+                        'text': website,
+                        'url': url
+                    })
+                    url_column = url_column == 0 and 1 or 0
+            return keyboard
+        else:
+            return None
+
     def process_queue(self):
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
             current_queued_image = self.queue_data['queue'][0]
             path = "queue/" + current_queued_image['path']
-            caption = current_queued_image['caption']
             self.queue_data['queue'].pop(0)
             self.save_queue()
 
             image_file = open(path, 'rb')
             telegram_file = {'photo': image_file}
             channel = str(self.channel)
+            caption = self.build_caption_buttons(current_queued_image['caption'])
             if caption is not None:
-                keyboard = {'inline_keyboard': []}
-                url_column = 0
-                url_row = -1
-                for line in caption.split(','):
-                    if 'http' in line:
-                        if url_column == 0:
-                            keyboard['inline_keyboard'].append([])
-                            url_row += 1
-                        link = urlparse(line)
-                        # Pretty print known site names.
-                        if 'furaffinity' in link.netloc:
-                            website = 'Furaffinity'
-                        elif 'e621' in link.netloc:
-                            website = 'e621'
-                        elif 'reddit' in link.netloc:
-                            subreddit_match = re.search(self.subreddit_regex, link.geturl(), re.IGNORECASE)
-                            website = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
-                        else:
-                            website = link.netloc
-                        url = link.geturl()
-                        keyboard['inline_keyboard'][url_row].append({
-                            'text': website,
-                            'url': url
-                        })
-                        url_column = url_column == 0 and 1 or 0
-                request = self.build_telegram_api_url('sendPhoto',
-                                                      '?chat_id=' + channel + '&reply_markup=' + json.dumps(keyboard),
-                                                      False)
+                request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(caption), False)
             else:
                 request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
             sent_file = requests.get(request, files=telegram_file)
