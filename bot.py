@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import hydrus_api
 import hydrus_api.utils
 import typing as t
+from wand.image import Image
 
 
 class YiffBot:
@@ -203,7 +204,14 @@ class YiffBot:
             self.queue_data['queue'].pop(0)
             self.save_queue()
 
-            # TODO: Images must be less than 10MB, 10,000x10,000px, and <20 h/w ratio
+            with Image(filename=path) as img:
+                if img.width > 10000 or img.height > 10000:
+                    img.transform(resize='1024x768')
+                    img.save(filename=path)
+
+                while os.path.getsize(path) > 10000000:
+                    img.resize(int(img.width * 0.9), int(img.height * 0.9))
+                    img.save(filename=path)
 
             image_file = open(path, 'rb')
             telegram_file = {'photo': image_file}
