@@ -203,6 +203,8 @@ class YiffBot:
             self.queue_data['queue'].pop(0)
             self.save_queue()
 
+            # TODO: Images must be less than 10MB, 10,000x10,000px, and <20 h/w ratio
+
             image_file = open(path, 'rb')
             telegram_file = {'photo': image_file}
             channel = str(self.channel)
