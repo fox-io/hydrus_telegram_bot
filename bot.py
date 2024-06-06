@@ -65,7 +65,8 @@ class YiffBot:
         if len(message) > 0:
             for i in range(len(self.admins)):
                 admin = str(self.admins[i])
-                requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
+                requests.get(self.build_telegram_api_url('sendMessage',
+                                                         '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
 
     # ----------------------------
 
@@ -136,30 +137,32 @@ class YiffBot:
                 caption = caption + url + ','
         return caption
 
+    def save_image_to_queue(self, file_id):
+        metadata = self.hydrus_client.get_file_metadata(file_ids=file_id)
+        filename = f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
+        path = t.cast(pathlib.Path,
+                      pathlib.Path.cwd()) / "queue" / f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
+        path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
+        caption = self.build_caption(metadata['metadata'][0]['known_urls'])
+        add_to_queue = True
+        self.load_queue()
+        if len(self.queue_data['queue']) > 0:
+            for entry in self.queue_data['queue']:
+                if entry['path'] == str(filename):
+                    add_to_queue = False
+        if add_to_queue:
+            self.queue_data['queue'].append({'path': str(filename), 'caption': caption})
+            self.save_queue()
+
     def get_new_hydrus_files(self):
         if not self.check_hydrus_permissions():
             return
         all_tagged_file_ids = self.hydrus_client.search_files([self.queue_tag])["file_ids"]
         for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
             for file_id in file_ids:
-                file_id = [file_id]
-                metadata = self.hydrus_client.get_file_metadata(file_ids=file_id)
-                filename = f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
-                path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
-                path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
-                caption = self.build_caption(metadata['metadata'][0]['known_urls'])
-                add_to_queue = True
-                self.load_queue()
-                if len(self.queue_data['queue']) > 0:
-                    for entry in self.queue_data['queue']:
-                        if entry['path'] == str(filename):
-                            add_to_queue = False
-                if add_to_queue:
-                    self.queue_data['queue'].append({'path': str(filename), 'caption': caption})
-                    self.save_queue()
-
-                self.remove_tag(file_id, self.queue_tag)
-                self.add_tag(file_id, self.posted_tag)
+                self.save_image_to_queue([file_id])
+                self.remove_tag([file_id], self.queue_tag)
+                self.add_tag([file_id], self.posted_tag)
 
     def process_queue(self):
         self.load_queue()
@@ -199,7 +202,9 @@ class YiffBot:
                             'url': url
                         })
                         url_column = url_column == 0 and 1 or 0
-                request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(keyboard), False)
+                request = self.build_telegram_api_url('sendPhoto',
+                                                      '?chat_id=' + channel + '&reply_markup=' + json.dumps(keyboard),
+                                                      False)
             else:
                 request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
             sent_file = requests.get(request, files=telegram_file)
