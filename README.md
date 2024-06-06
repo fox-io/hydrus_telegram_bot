@@ -1,12 +1,14 @@
-# Telegram Yiff Bot
+# Hydrus Telegram Bot
 
 ## About
-Posts images to a Telegram channel from a Telegram bot.
+Posts images to a Telegram channel from Hydrus Network client based on a target tag.
 
 ## Usage
 Start by cloning the repo into your desired folder.
+Copy config.json.example to config.json and enter your information into this file.
 
-1. Copy config.json.example to config.json and enter your information into this file.
-2. Copy data.json.example to data.json. You do not need to make changes to this file.
+Ensure Hydrus is running with the Client API available.
+Tag your images in Hydrus with the tag in target_tag.
 
-Send images as files to your bot's chat. You can include source URLs in the caption (one per line), and they will be parsed to buttons below the image post. Subreddits are parsed from Reddit URLs.
+Images will be posted to the Telegram channel with source URLs.
+They will also be tagged with the tag in final_tag.

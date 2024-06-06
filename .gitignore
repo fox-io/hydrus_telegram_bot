@@ -1,11 +1,9 @@
-config.json
-data.json
-image.png
-image.jpeg
-image.mp4
-test.png
-test.jpeg
-test.mp4
+*.png
+*.jpeg
+*.jpg
+*.mp4
 /.venv/
 /.idea/
 /.vscode/
+/queue.json
+/config.json

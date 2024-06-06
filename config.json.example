@@ -1,10 +1,11 @@
 {
   "admins": [111111111],
-  "credentials": {
-    "telegramAccessToken": "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    "telegramChannel": -1111111111111,
-    "telegramBotID": 1111111111
-  },
+  "telegram_access_token": "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "telegram_channel": -1111111111111,
+  "telegram_bot_id": 1111111111,
+  "hydrus_api_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "queue_tag": "share_to_telegram_tag",
+  "posted_tag": "posted:telegram",
   "delay": 60,
   "timezone": 0
 }
