@@ -127,6 +127,15 @@ class YiffBot:
             return False
         return True
 
+    # noinspection PyMethodMayBeStatic
+    def build_caption(self, known_urls: list):
+        caption = ''
+        for url in known_urls:
+            # Skip direct links.
+            if url.startswith("https://www."):
+                caption = caption + url + ','
+        return caption
+
     def get_new_hydrus_files(self):
         if not self.check_hydrus_permissions():
             return
@@ -138,12 +147,7 @@ class YiffBot:
                 filename = f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
                 path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
                 path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
-                known_urls = metadata['metadata'][0]['known_urls']
-                caption = ''
-                for url in known_urls:
-                    # Skip direct links.
-                    if url.startswith("https://www."):
-                        caption = caption + url + ','
+                caption = self.build_caption(metadata['metadata'][0]['known_urls'])
                 add_to_queue = True
                 self.load_queue()
                 if len(self.queue_data['queue']) > 0:
