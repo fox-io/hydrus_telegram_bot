@@ -129,13 +129,13 @@ class YiffBot:
         return True
 
     # noinspection PyMethodMayBeStatic
-    def build_caption(self, known_urls: list):
-        caption = ''
+    def concatenate_sauce(self, known_urls: list):
+        sauce = ''
         for url in known_urls:
             # Skip direct links.
             if url.startswith("https://www."):
-                caption = caption + url + ','
-        return caption
+                sauce = sauce + url + ','
+        return sauce
 
     def save_image_to_queue(self, file_id):
         metadata = self.hydrus_client.get_file_metadata(file_ids=file_id)
@@ -143,7 +143,7 @@ class YiffBot:
         path = t.cast(pathlib.Path,
                       pathlib.Path.cwd()) / "queue" / f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
         path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
-        caption = self.build_caption(metadata['metadata'][0]['known_urls'])
+        caption = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
         add_to_queue = True
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
