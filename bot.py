@@ -117,15 +117,19 @@ class YiffBot:
             }
         })
 
-    def get_new_hydrus_files(self):
+    def check_hydrus_permissions(self):
         try:
             if not hydrus_api.utils.verify_permissions(self.hydrus_client, self.permissions):
                 print("The client does not have the required permissions.")
-                return
+                return False
         except requests.exceptions.ConnectionError:
             print("The Hydrus client is not running.")
-            return
+            return False
+        return True
 
+    def get_new_hydrus_files(self):
+        if not self.check_hydrus_permissions():
+            return
         all_tagged_file_ids = self.hydrus_client.search_files([self.queue_tag])["file_ids"]
         for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
             for file_id in file_ids:
