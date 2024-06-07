@@ -12,7 +12,7 @@ import typing as t
 from wand.image import Image
 
 
-class YiffBot:
+class HydrusTelegramBot:
     file_list = []
     used_ids = []
     forward_list = []
@@ -246,5 +246,5 @@ class YiffBot:
 
 
 if __name__ == '__main__':
-    app = YiffBot()
+    app = HydrusTelegramBot()
     app.scheduler.run()
