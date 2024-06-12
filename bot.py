@@ -66,8 +66,9 @@ class HydrusTelegramBot:
         if len(message) > 0:
             for i in range(len(self.admins)):
                 admin = str(self.admins[i])
-                requests.get(self.build_telegram_api_url('sendMessage',
-                                                         '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
+                requests.get(
+                    self.build_telegram_api_url('sendMessage',
+                                                '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
 
     # ----------------------------
 
@@ -141,8 +142,7 @@ class HydrusTelegramBot:
     def save_image_to_queue(self, file_id):
         metadata = self.hydrus_client.get_file_metadata(file_ids=file_id)
         filename = f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
-        path = t.cast(pathlib.Path,
-                      pathlib.Path.cwd()) / "queue" / f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}"
+        path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
         path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
         caption = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
         add_to_queue = True
@@ -218,7 +218,9 @@ class HydrusTelegramBot:
             channel = str(self.channel)
             caption = self.build_caption_buttons(current_queued_image['caption'])
             if caption is not None:
-                request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(caption), False)
+                request = self.build_telegram_api_url('sendPhoto',
+                                                      '?chat_id=' + channel + '&reply_markup=' + json.dumps(caption),
+                                                      False)
             else:
                 request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
             sent_file = requests.get(request, files=telegram_file)
