@@ -49,7 +49,9 @@ class HydrusTelegramBot:
         return (current_time - (current_time % (self.delay * 60))) + (self.delay * 60)
 
     def schedule_update(self):
-        self.scheduler.enterabs((self.get_next_update_time() - (3600 * self.timezone)), 1, self.on_scheduler, ())
+        next_time = self.get_next_update_time() - (3600 * self.timezone)
+        print(f"Next update scheduled for {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(next_time))}.")
+        self.scheduler.enterabs(next_time, 1, self.on_scheduler, ())
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
         url = 'https://api.telegram.org/'
@@ -73,6 +75,7 @@ class HydrusTelegramBot:
     # ----------------------------
 
     def load_config(self):
+        print("Loading config.")
         with open('config.json') as config:
             config_data = json.load(config)
             self.access_token = config_data['telegram_access_token']
@@ -91,6 +94,7 @@ class HydrusTelegramBot:
                 queue_file.write(json.dumps({
                     "queue": []
                 }))
+            print("Queue file created.")
         except FileExistsError:
             pass
 
@@ -102,6 +106,7 @@ class HydrusTelegramBot:
             json.dump(self.queue_data, queue_file)
 
     def update_queue(self):
+        print("Updating queue.")
         self.load_queue()
         self.get_new_hydrus_files()
         self.save_queue()
@@ -197,6 +202,7 @@ class HydrusTelegramBot:
             return None
 
     def process_queue(self):
+        print("Processing next image in queue.")
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
             current_queued_image = self.queue_data['queue'][0]
@@ -225,14 +231,16 @@ class HydrusTelegramBot:
                 request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
             sent_file = requests.get(request, files=telegram_file)
             if sent_file.json()['ok']:
-                pass
+                print("Image sent successfully.")
             else:
-                print("Failed to send photo to Telegram channel.")
+                print("Image failed to send.")
+                self.send_message("Image failed to send.")
 
             # Delete image_file from disk.
             image_file.close()
             os.remove(path)
         else:
+            print("Queue is empty.")
             self.send_message("Queue is empty.")
 
     def on_scheduler(self):
@@ -244,7 +252,7 @@ class HydrusTelegramBot:
         self.load_config()
         self.load_queue()
         self.hydrus_client = hydrus_api.Client(self.hydrus_api_key)
-        self.schedule_update()
+        self.on_scheduler()
 
 
 if __name__ == '__main__':
