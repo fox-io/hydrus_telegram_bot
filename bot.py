@@ -124,6 +124,11 @@ class HydrusTelegramBot:
                 str(hydrus_api.TagAction.DELETE): [tag]
             }
         })
+        self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
+            self.hydrus_service_key["my_tags"]: {
+                str(hydrus_api.TagAction.DELETE): [tag]
+            }
+        })
 
     def check_hydrus_permissions(self):
         try:
