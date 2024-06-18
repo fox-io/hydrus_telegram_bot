@@ -215,6 +215,7 @@ class HydrusTelegramBot:
             self.queue_data['queue'].pop(0)
             self.save_queue()
 
+            # Telegram has limits on image file size and dimensions. We resize large things here.
             with Image(filename=path) as img:
                 if img.width > 10000 or img.height > 10000:
                     img.transform(resize='1024x768')
