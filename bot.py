@@ -50,7 +50,7 @@ class HydrusTelegramBot:
 
     def schedule_update(self):
         next_time = self.get_next_update_time() - (3600 * self.timezone)
-        print(f"Next update scheduled for {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(next_time))}.")
+        print(f"Next update scheduled for {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(next_time))}.")
         self.scheduler.enterabs(next_time, 1, self.on_scheduler, ())
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
@@ -244,6 +244,8 @@ class HydrusTelegramBot:
             # Delete image_file from disk.
             image_file.close()
             os.remove(path)
+            print("Queued images remaining: " + str(len(self.queue_data['queue'])))
+
         else:
             print("Queue is empty.")
             self.send_message("Queue is empty.")
