@@ -69,8 +69,7 @@ class HydrusTelegramBot:
             for i in range(len(self.admins)):
                 admin = str(self.admins[i])
                 requests.get(
-                    self.build_telegram_api_url('sendMessage',
-                                                '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
+                    self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
 
     # ----------------------------
 
@@ -230,9 +229,7 @@ class HydrusTelegramBot:
             channel = str(self.channel)
             caption = self.build_caption_buttons(current_queued_image['caption'])
             if caption is not None:
-                request = self.build_telegram_api_url('sendPhoto',
-                                                      '?chat_id=' + channel + '&reply_markup=' + json.dumps(caption),
-                                                      False)
+                request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(caption), False)
             else:
                 request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
             sent_file = requests.get(request, files=telegram_file)
