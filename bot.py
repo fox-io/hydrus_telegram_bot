@@ -28,6 +28,7 @@ class HydrusTelegramBot:
     subreddit_regex = "/(r/[a-z0-9][_a-z0-9]{2,20})/"
     hydrus_api_key = ""
     queue_data = []
+    queue_loaded = False
     queue_tag = ""
     posted_tag = ""
     hydrus_service_key = {
@@ -87,30 +88,38 @@ class HydrusTelegramBot:
             self.delay = config_data['delay']
             self.timezone = config_data['timezone']
 
-    def load_queue(self):
+    def verify_queue_file(self):
         try:
-            with open('queue.json', 'x') as queue_file:
+            with open('queue.json', 'r'):
+                pass
+        except FileNotFoundError:
+            with open('queue.json', 'w+') as queue_file:
                 queue_file.write(json.dumps({
                     "queue": []
                 }))
-            print("Queue file created.")
-        except FileExistsError:
-            pass
+            print("Created new queue file.")
 
-        with open('queue.json') as queue_file:
-            self.queue_data = json.load(queue_file)
+    def load_queue(self):
+        if not self.queue_loaded:
+            self.verify_queue_file()
+            print("Loading queue.")
+            with open('queue.json') as queue_file:
+                self.queue_data = json.load(queue_file)
+            self.queue_loaded = True
 
     def save_queue(self):
-        with open('queue.json', 'w') as queue_file:
+        print("Saving queue.")
+        with open('queue.json', 'w+') as queue_file:
             json.dump(self.queue_data, queue_file)
+        self.queue_loaded = False
 
     def update_queue(self):
-        print("Updating queue.")
         self.load_queue()
         self.get_new_hydrus_files()
         self.save_queue()
 
     def add_tag(self, file_id: list, tag: str):
+        print("Adding posted tag.")
         self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
             self.hydrus_service_key["my_tags"]: {
                 str(hydrus_api.TagAction.ADD): [tag],
@@ -118,6 +127,7 @@ class HydrusTelegramBot:
         })
 
     def remove_tag(self, file_id: list, tag: str):
+        print("Removing send tag.")
         self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
             self.hydrus_service_key["downloader_tags"]: {
                 str(hydrus_api.TagAction.DELETE): [tag]
@@ -170,6 +180,7 @@ class HydrusTelegramBot:
             print("Skipping new image: already in queue.")
 
     def get_new_hydrus_files(self):
+        print("Checking Hydrus for new files.")
         if not self.check_hydrus_permissions():
             return
         all_tagged_file_ids = self.hydrus_client.search_files([self.queue_tag])["file_ids"]
@@ -260,7 +271,6 @@ class HydrusTelegramBot:
 
     def __init__(self):
         self.load_config()
-        self.load_queue()
         self.hydrus_client = hydrus_api.Client(self.hydrus_api_key)
         self.on_scheduler()
 
