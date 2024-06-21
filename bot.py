@@ -158,7 +158,7 @@ class HydrusTelegramBot:
                 sauce = sauce + url + ','
         return sauce
     
-    def image_in_queue(self, filename: str):
+    def image_is_queued(self, filename: str):
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
             for entry in self.queue_data['queue']:
@@ -172,7 +172,7 @@ class HydrusTelegramBot:
         path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
         path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
         caption = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
-        if not self.image_in_queue(filename):
+        if not self.image_is_queued(filename):
             print("Adding new image to queue.")
             self.queue_data['queue'].append({'path': filename, 'caption': caption})
             self.save_queue()
