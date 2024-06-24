@@ -227,8 +227,6 @@ class HydrusTelegramBot:
         if len(self.queue_data['queue']) > 0:
             current_queued_image = self.queue_data['queue'][0]
             path = "queue/" + current_queued_image['path']
-            self.queue_data['queue'].pop(0)
-            self.save_queue()
 
             # Telegram has limits on image file size and dimensions. We resize large things here.
             with Image(filename=path) as img:
@@ -255,9 +253,11 @@ class HydrusTelegramBot:
                 print("Image failed to send.")
                 self.send_message("Image failed to send.")
 
-            # Delete image_file from disk.
+            # Delete the image from disk and queue.
             image_file.close()
             os.remove(path)
+            self.queue_data['queue'].pop(0)
+            self.save_queue()
             print("Queued images remaining: " + str(len(self.queue_data['queue'])))
 
         else:
