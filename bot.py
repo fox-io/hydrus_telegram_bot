@@ -192,7 +192,10 @@ class HydrusTelegramBot:
                 num_images += self.save_image_to_queue([file_id])
                 self.remove_tag([file_id], self.queue_tag)
                 self.add_tag([file_id], self.posted_tag)
-        print(f"Added {num_images} image(s) to the queue.")
+        if num_images > 0:
+            print(f"Added {num_images} image(s) to the queue.")
+        else:
+            print("No new images found.")
 
     def build_caption_buttons(self, caption: str):
         if caption is not None:
@@ -269,17 +272,13 @@ class HydrusTelegramBot:
             self.send_message("Queue is empty.")
 
     def on_scheduler(self):
-        print("Processing...")
         self.update_queue()
         self.process_queue()
         self.schedule_update()
-        print("Done!")
 
     def __init__(self):
-        print("Starting up...")
         self.load_config()
         self.hydrus_client = hydrus_api.Client(self.hydrus_api_key)
-        print("Ready!")
         self.on_scheduler()
 
 
