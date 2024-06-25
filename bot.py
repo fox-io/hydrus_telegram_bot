@@ -142,10 +142,10 @@ class HydrusTelegramBot:
     def check_hydrus_permissions(self):
         try:
             if not hydrus_api.utils.verify_permissions(self.hydrus_client, self.permissions):
-                print("The client does not have the required permissions.")
+                print("    The client does not have the required permissions.")
                 return False
         except requests.exceptions.ConnectionError:
-            print("The Hydrus client is not running.")
+            print("    The Hydrus client is not running.")
             return False
         return True
 
@@ -193,9 +193,9 @@ class HydrusTelegramBot:
                 self.remove_tag([file_id], self.queue_tag)
                 self.add_tag([file_id], self.posted_tag)
         if num_images > 0:
-            print(f"Added {num_images} image(s) to the queue.")
+            print(f"    Added {num_images} image(s) to the queue.")
         else:
-            print("No new images found.")
+            print("    No new images found.")
 
     def build_caption_buttons(self, caption: str):
         if caption is not None:
@@ -255,9 +255,9 @@ class HydrusTelegramBot:
                 request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
             sent_file = requests.get(request, files=telegram_file)
             if sent_file.json()['ok']:
-                print("Image sent successfully.")
+                print("    Image sent successfully.")
             else:
-                print("Image failed to send.")
+                print("    Image failed to send.")
                 self.send_message("Image failed to send.")
 
             # Delete the image from disk and queue.
