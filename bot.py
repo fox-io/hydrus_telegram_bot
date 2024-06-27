@@ -167,18 +167,30 @@ class HydrusTelegramBot:
         return False
 
     def save_image_to_queue(self, file_id):
+        # Load metadata from Hydrus.
         metadata = self.hydrus_client.get_file_metadata(file_ids=file_id)
+
+        # Save image from Hydrus to queue folder. Creates filename based on hash.
         filename = str(f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}")
         path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
         path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
+
+        # Extract creator tag if present.
+        creator = None
+        tags = metadata['metadata'][0]['tags']['646f776e6c6f616465722074616773']['display_tags']['0']
+        for tag in tags:
+            if "creator:" in tag:
+                creator = tag.split(":")[1]
+
+        # Create sauce links.
         caption = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
+
+        # Add image to queue if not present.
         if not self.image_is_queued(filename):
-            # print("Adding new image to queue.")
-            self.queue_data['queue'].append({'path': filename, 'caption': caption})
+            self.queue_data['queue'].append({'path': filename, 'caption': caption, 'creator': creator})
             self.save_queue()
             return 1
         else:
-            # print("Skipping new image: already in queue.")
             return 0
 
     def get_new_hydrus_files(self):
