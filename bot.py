@@ -183,11 +183,11 @@ class HydrusTelegramBot:
                 creator = tag.split(":")[1]
 
         # Create sauce links.
-        caption = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
+        sauce = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
 
         # Add image to queue if not present.
         if not self.image_is_queued(filename):
-            self.queue_data['queue'].append({'path': filename, 'caption': caption, 'creator': creator})
+            self.queue_data['queue'].append({'path': filename, 'sauce': sauce, 'creator': creator})
             self.save_queue()
             return 1
         else:
@@ -260,11 +260,24 @@ class HydrusTelegramBot:
             image_file = open(path, 'rb')
             telegram_file = {'photo': image_file}
             channel = str(self.channel)
-            caption = self.build_caption_buttons(current_queued_image['caption'])
-            if caption is not None:
-                request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(caption), False)
+            creator = None
+            if "creator" in current_queued_image:
+                creator = str(current_queued_image['creator'])
+            sauce = None
+            if "sauce" in current_queued_image:
+                sauce = self.build_caption_buttons(current_queued_image['caption'])
+
+            if sauce is not None:
+                if creator is not None:
+                    request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce) + '&caption=Artist: ' + creator, False)
+                else:
+                    request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce), False)
             else:
-                request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
+                if creator is not None:
+                    request  = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&caption=Artist: '+ creator, False)
+                else:
+                    request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
+
             sent_file = requests.get(request, files=telegram_file)
             if sent_file.json()['ok']:
                 print("    Image sent successfully.")
