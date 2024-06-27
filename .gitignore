@@ -7,3 +7,7 @@
 /.vscode/
 /queue.json
 /config.json
+/config.json.dev
+/config.json.prod
+/config-dev.bat
+/config-prod.bat
