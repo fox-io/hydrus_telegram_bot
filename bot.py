@@ -187,7 +187,10 @@ class HydrusTelegramBot:
 
         # Add image to queue if not present.
         if not self.image_is_queued(filename):
-            self.queue_data['queue'].append({'path': filename, 'sauce': sauce, 'creator': creator})
+            if creator is not None and creator != "":
+                self.queue_data['queue'].append({'path': filename, 'sauce': sauce, 'creator': creator})
+            else:
+                self.queue_data['queue'].append({'path': filename,'sauce': sauce})
             self.save_queue()
             return 1
         else:
@@ -263,6 +266,8 @@ class HydrusTelegramBot:
             creator = None
             if "creator" in current_queued_image:
                 creator = str(current_queued_image['creator'])
+                if creator == "None" or creator == "":
+                    creator = None
             sauce = None
             if "sauce" in current_queued_image:
                 sauce = self.build_caption_buttons(current_queued_image['sauce'])
