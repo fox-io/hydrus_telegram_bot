@@ -265,7 +265,7 @@ class HydrusTelegramBot:
                 creator = str(current_queued_image['creator'])
             sauce = None
             if "sauce" in current_queued_image:
-                sauce = self.build_caption_buttons(current_queued_image['caption'])
+                sauce = self.build_caption_buttons(current_queued_image['sauce'])
 
             if sauce is not None:
                 if creator is not None:
