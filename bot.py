@@ -288,7 +288,7 @@ class HydrusTelegramBot:
                 print("    Image sent successfully.")
             else:
                 print("    Image failed to send.")
-                self.send_message("Image failed to send.")
+                self.send_message(f"Image failed to send. {path}")
 
             # Delete the image from disk and queue.
             image_file.close()
