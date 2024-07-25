@@ -1,5 +1,6 @@
 import pathlib
 import json
+import random
 import requests
 import sched
 import time
@@ -247,7 +248,9 @@ class HydrusTelegramBot:
         print("Processing next image in queue.")
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
-            current_queued_image = self.queue_data['queue'][0]
+            random_index = random.randint(0, len(self.queue_data['queue']) - 1)
+
+            current_queued_image = self.queue_data['queue'][random_index]
             path = "queue/" + current_queued_image['path']
 
             # Telegram has limits on image file size and dimensions. We resize large things here.
@@ -263,11 +266,13 @@ class HydrusTelegramBot:
             image_file = open(path, 'rb')
             telegram_file = {'photo': image_file}
             channel = str(self.channel)
+
             creator = None
             if "creator" in current_queued_image:
                 creator = str(current_queued_image['creator'])
                 if creator == "None" or creator == "":
                     creator = None
+
             sauce = None
             if "sauce" in current_queued_image:
                 sauce = self.build_caption_buttons(current_queued_image['sauce'])
@@ -293,7 +298,7 @@ class HydrusTelegramBot:
             # Delete the image from disk and queue.
             image_file.close()
             os.remove(path)
-            self.queue_data['queue'].pop(0)
+            self.queue_data['queue'].pop(random_index)
             self.save_queue()
             print("Queued images remaining: " + str(len(self.queue_data['queue'])))
 
