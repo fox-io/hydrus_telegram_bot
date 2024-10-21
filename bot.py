@@ -47,15 +47,18 @@ class HydrusTelegramBot:
     # ----------------------------
 
     def get_next_update_time(self):
+        # Calculate the next update time.
         current_time = (time.time() + ((60 * 60) * self.timezone))
         return (current_time - (current_time % (self.delay * 60))) + (self.delay * 60)
 
     def schedule_update(self):
+        # Schedules an event for the next update time.
         next_time = self.get_next_update_time() - (3600 * self.timezone)
         print(f"Next update scheduled for {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(next_time))}.")
         self.scheduler.enterabs(next_time, 1, self.on_scheduler, ())
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
+        # Constructs a Telegram API url for bot communication.
         url = 'https://api.telegram.org/'
         if is_file:
             url += 'file/'
@@ -76,7 +79,7 @@ class HydrusTelegramBot:
     # ----------------------------
 
     def load_config(self):
-        # print("Loading config.")
+        # Load the config file.
         with open('config.json') as config:
             config_data = json.load(config)
             self.access_token = config_data['telegram_access_token']
@@ -90,6 +93,7 @@ class HydrusTelegramBot:
             self.timezone = config_data['timezone']
 
     def verify_queue_file(self):
+        # Create a queue file if not present.
         try:
             with open('queue.json', 'r'):
                 pass
@@ -101,26 +105,27 @@ class HydrusTelegramBot:
             print("Created new queue file.")
 
     def load_queue(self):
+        # Load queue from file.
         if not self.queue_loaded:
             self.verify_queue_file()
-            # print("Loading queue.")
             with open('queue.json') as queue_file:
                 self.queue_data = json.load(queue_file)
             self.queue_loaded = True
 
     def save_queue(self):
-        # print("Saving queue.")
+        # Save queue to file.
         with open('queue.json', 'w+') as queue_file:
             json.dump(self.queue_data, queue_file)
         self.queue_loaded = False
 
     def update_queue(self):
+        # Update queue from Hydrus, then save queue to file.
         self.load_queue()
         self.get_new_hydrus_files()
         self.save_queue()
 
     def add_tag(self, file_id: list, tag: str):
-        # print("Adding posted tag.")
+        # Add Hydrus tag to indicate image has been posted (enqueued).
         self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
             self.hydrus_service_key["my_tags"]: {
                 str(hydrus_api.TagAction.ADD): [tag],
@@ -128,7 +133,7 @@ class HydrusTelegramBot:
         })
 
     def remove_tag(self, file_id: list, tag: str):
-        # print("Removing send tag.")
+        # Remove Hydrus tag indicating image should be posted.
         self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
             self.hydrus_service_key["downloader_tags"]: {
                 str(hydrus_api.TagAction.DELETE): [tag]
@@ -141,6 +146,7 @@ class HydrusTelegramBot:
         })
 
     def check_hydrus_permissions(self):
+        # Check that Hydrus is running and the current permissions are valid.
         try:
             if not hydrus_api.utils.verify_permissions(self.hydrus_client, self.permissions):
                 print("    The client does not have the required permissions.")
@@ -152,6 +158,7 @@ class HydrusTelegramBot:
 
     # noinspection PyMethodMayBeStatic
     def concatenate_sauce(self, known_urls: list):
+        # Return source URLs.
         sauce = ''
         for url in known_urls:
             # Skip direct links.
@@ -160,6 +167,7 @@ class HydrusTelegramBot:
         return sauce
     
     def image_is_queued(self, filename: str):
+        # Check that image being enqueued is not already queued.
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
             for entry in self.queue_data['queue']:
@@ -168,6 +176,8 @@ class HydrusTelegramBot:
         return False
 
     def save_image_to_queue(self, file_id):
+        # Insert an image into the queue.
+
         # Load metadata from Hydrus.
         metadata = self.hydrus_client.get_file_metadata(file_ids=file_id)
 
@@ -198,6 +208,7 @@ class HydrusTelegramBot:
             return 0
 
     def get_new_hydrus_files(self):
+        # Check Hydrus for new images to enqueue.
         print("Checking Hydrus for new files.")
         if not self.check_hydrus_permissions():
             return
@@ -214,6 +225,7 @@ class HydrusTelegramBot:
             print("    No new images found.")
 
     def build_caption_buttons(self, caption: str):
+        # Assembles buttons to display under the Telegram post.
         if caption is not None:
             keyboard = {'inline_keyboard': []}
             url_column = 0
@@ -245,6 +257,7 @@ class HydrusTelegramBot:
             return None
 
     def process_queue(self):
+        # Post next image to Telegram and remove it from the queue.
         print("Processing next image in queue.")
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
@@ -307,16 +320,19 @@ class HydrusTelegramBot:
             self.send_message("Queue is empty.")
 
     def on_scheduler(self):
+        # Event handler.
         self.update_queue()
         self.process_queue()
         self.schedule_update()
 
     def __init__(self):
+        # Startup sequence.
         self.load_config()
         self.hydrus_client = hydrus_api.Client(self.hydrus_api_key)
         self.on_scheduler()
 
 
 if __name__ == '__main__':
+    # Main program.
     app = HydrusTelegramBot()
     app.scheduler.run()
