@@ -279,12 +279,12 @@ class HydrusTelegramBot:
 
             if sauce is not None:
                 if creator is not None:
-                    request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce) + '&caption=Artist: ' + creator, False)
+                    request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce) + '&caption=Uploader: ' + creator, False)
                 else:
                     request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce), False)
             else:
                 if creator is not None:
-                    request  = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&caption=Artist: '+ creator, False)
+                    request  = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&caption=Uploader: '+ creator, False)
                 else:
                     request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel, False)
 
