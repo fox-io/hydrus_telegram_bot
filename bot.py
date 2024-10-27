@@ -208,8 +208,8 @@ class HydrusTelegramBot:
                 character_name = character_name.title()
                 character_urlencoded = character_tag.replace(" ", "_")
                 character_urlencoded = urllib.parse.quote(character_urlencoded)
-                character_markdown = f"<a href=\"https://e621.net/posts?tags={character_urlencoded}\">{character_name}</a>"
-                character = character is None and character_markdown or character + "\n" + character_markdown
+                character_markup = f"<a href=\"https://e621.net/posts?tags={character_urlencoded}\">{character_name}</a>"
+                character = character is None and character_markup or character + "\n" + character_markup
 
         # Create sauce links.
         sauce = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
