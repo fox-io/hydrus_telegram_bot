@@ -194,7 +194,12 @@ class HydrusTelegramBot:
         creator = None
         for tag in tags:
             if "creator:" in tag:
-                creator = tag.split(":")[1]
+                creator_tag = tag.split(":")[1]
+                creator_name = creator_tag.title()
+                creator_urlencoded = creator_tag.replace(" ", "_")
+                creator_urlencoded = urllib.parse.quote(creator_urlencoded)
+                creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
+                creator = creator_markup
 
         # Extract character tag(s) if present.
         character = None
@@ -203,7 +208,7 @@ class HydrusTelegramBot:
             if "character:" in tag:
                 character_tag = tag.split(":")[1]
                 # Some tags have "(character)" in their tag name. For display purposes, we don't need this.
-                # We also capitalize the character names.
+                # We also capitalize the character names in the display portion of the link.
                 character_name = character_tag.replace(" (character)", "")
                 character_name = character_name.title()
                 character_urlencoded = character_tag.replace(" ", "_")
@@ -341,7 +346,7 @@ class HydrusTelegramBot:
                         request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&caption=Character(s):\n' + character + '&parse_mode=html', False)
                     else:
                         request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&parse_mode=html', False)
-            print(request)
+            
             sent_file = requests.get(request, files=telegram_file)
             if sent_file.json()['ok']:
                 print("    Image sent successfully.")
