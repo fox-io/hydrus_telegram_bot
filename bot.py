@@ -323,28 +323,21 @@ class HydrusTelegramBot:
             if "sauce" in current_queued_image:
                 sauce = self.build_caption_buttons(current_queued_image['sauce'])
 
+            message_content = ''
             if sauce is not None:
+                message_content = message_content + '&reply_markup=' + json.dumps(sauce)
+            
+            message_content = message_content + '&caption='
+
+            if creator is not None:
+                message_content = message_content + 'Uploader:\n' + creator
+
+            if character is not None:
                 if creator is not None:
-                    if character is not None:
-                        request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce) + '&caption=Uploader:\n' + creator + '\n\nCharacter(s):\n' + character + '&parse_mode=html', False)
-                    else:
-                        request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce) + '&caption=Uploader:\n' + creator + '&parse_mode=html', False)
-                else:
-                    if character is not None:
-                        request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce) + '&caption=Character(s):\n' + character + '&parse_mode=html', False)
-                    else:
-                        request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&reply_markup=' + json.dumps(sauce) + '&parse_mode=html', False)
-            else:
-                if creator is not None:
-                    if character is not None:
-                        request  = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&caption=Uploader:\n'+ creator + '\n\nCharacter(s):\n' + character + '&parse_mode=html', False)
-                    else:
-                        request  = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&caption=Uploader:\n' + creator + '&parse_mode=html', False)
-                else:
-                    if character is not None:
-                        request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&caption=Character(s):\n' + character + '&parse_mode=html', False)
-                    else:
-                        request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&parse_mode=html', False)
+                    message_content = message_content + '\n\n'
+                message_content = message_content + 'Character(s):\n' + character
+
+            request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&' + message_content + '&parse_mode=html', False)
             
             sent_file = requests.get(request, files=telegram_file)
             if sent_file.json()['ok']:
