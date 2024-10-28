@@ -203,7 +203,6 @@ class HydrusTelegramBot:
 
         # Extract character tag(s) if present.
         character = None
-        character_tag = None
         for tag in tags:
             if "character:" in tag:
                 character_tag = tag.split(":")[1]
