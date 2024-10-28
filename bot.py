@@ -188,7 +188,7 @@ class HydrusTelegramBot:
         path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
 
         # Get the tags for the image
-        tags = metadata['metadata'][0]['tags']['646f776e6c6f616465722074616773']['display_tags']['0']
+        tags = metadata['metadata'][0]['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
 
         # Extract creator tag if present.
         creator = None
