@@ -220,15 +220,19 @@ class HydrusTelegramBot:
 
         # Add image to queue if not present.
         if not self.image_is_queued(filename):
+            # Assemble image data into a dict
+            image_data = {'path': filename}
+            if sauce is not None and sauce != "":
+                image_data.update({'sauce': sauce})
+
             if creator is not None and creator != "":
-                if character is not None and character != "":
-                    self.queue_data['queue'].append({'path': filename, 'sauce': sauce, 'creator': creator, 'character': character})
-                else:
-                    self.queue_data['queue'].append({'path': filename, 'sauce': sauce, 'creator': creator})
-            elif character is not None and character != "":
-                self.queue_data['queue'].append({'path': filename, 'sauce': sauce, 'character': character})
-            else:
-                self.queue_data['queue'].append({'path': filename,'sauce': sauce})
+                image_data.update({'creator': creator})
+
+            if character is not None and character != "":
+                image_data.update({'character': character})
+
+            # Insert image data dict into queue.
+            self.queue_data['queue'].append(image_data)
             self.save_queue()
             return 1
         else:
@@ -308,6 +312,7 @@ class HydrusTelegramBot:
             telegram_file = {'photo': image_file}
             channel = str(self.channel)
 
+            # Gather available data for creator, character, and sauce buttons.
             creator = None
             if "creator" in current_queued_image:
                 creator = str(current_queued_image['creator'])
@@ -324,6 +329,7 @@ class HydrusTelegramBot:
             if "sauce" in current_queued_image:
                 sauce = self.build_caption_buttons(current_queued_image['sauce'])
 
+            # Assemble the message content
             message_content = ''
             if sauce is not None:
                 message_content = message_content + '&reply_markup=' + json.dumps(sauce)
@@ -338,8 +344,10 @@ class HydrusTelegramBot:
                     message_content = message_content + '\n\n'
                 message_content = message_content + 'Character(s):\n' + character
 
+            # Build our Telegram bot API URL.
             request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&' + message_content + '&parse_mode=html', False)
             
+            # Attempt to send the image to our Telegram bot.
             sent_file = requests.get(request, files=telegram_file)
             if sent_file.json()['ok']:
                 print("    Image sent successfully.")
@@ -352,9 +360,12 @@ class HydrusTelegramBot:
             os.remove(path)
             self.queue_data['queue'].pop(random_index)
             self.save_queue()
+
+            # Send queue size update to terminal.
             print("Queued images remaining: " + str(len(self.queue_data['queue'])))
 
         else:
+            # If queue is empty, alert admin and terminal.
             print("Queue is empty.")
             self.send_message("Queue is empty.")
 
@@ -372,6 +383,6 @@ class HydrusTelegramBot:
 
 
 if __name__ == '__main__':
-    # Main program.
+    # Main program loop.
     app = HydrusTelegramBot()
     app.scheduler.run()
