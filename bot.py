@@ -300,7 +300,8 @@ class HydrusTelegramBot:
                     img.save(filename=path)
 
                 while os.path.getsize(path) > 10000000:
-                    img.resize(int(img.width * 0.9), int(img.height * 0.9))
+                    img.resize((int(img.width * 0.9), int(img.height * 0.9)))
+
                     img.save(filename=path)
 
             image_file = open(path, 'rb')
