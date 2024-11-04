@@ -356,7 +356,11 @@ class HydrusTelegramBot:
             request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&' + message_content + '&parse_mode=html', False)
             
             # Attempt to send the image to our Telegram bot.
-            sent_file = requests.get(request, files=telegram_file)
+            try:
+                sent_file = requests.get(request, files=telegram_file)
+            except requests.exceptions.RequestException as e:
+                print("An error occurred when communicating with the Telegram bot: ", e)
+            
             if sent_file.json()['ok']:
                 print("    Image sent successfully.")
             else:
