@@ -288,6 +288,22 @@ class HydrusTelegramBot:
         else:
             return None
 
+    def reduce_image_size(path):
+        # Telegram has limits on image file size and dimensions. We resize large things here.
+        try:
+            img = Image(filename=path)
+        except Exception as e:
+            print("An error occurred while opening the image: ", str(e))
+
+        if img.width > 10000 or img.height > 10000:
+            img.transform(resize='1024x768')
+            img.save(filename=path)
+
+        if os.path.getsize(path) > 10000000:
+            size_ratio = os.path.getsize(path) / 10000000
+            img.resize((round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio))))
+            img.save(filename=path)
+
     def process_queue(self):
         # Post next image to Telegram and remove it from the queue.
         print("Processing next image in queue.")
@@ -298,15 +314,7 @@ class HydrusTelegramBot:
             current_queued_image = self.queue_data['queue'][random_index]
             path = "queue/" + current_queued_image['path']
 
-            # Telegram has limits on image file size and dimensions. We resize large things here.
-            with Image(filename=path) as img:
-                if img.width > 10000 or img.height > 10000:
-                    img.transform(resize='1024x768')
-                    img.save(filename=path)
-
-                size_ratio = os.path.getsize(path) / 10000000
-                img.resize((round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio))))
-                img.save(filename=path)
+            self.reduce_image_size(path)
 
             image_file = open(path, 'rb')
             telegram_file = {'photo': image_file}
