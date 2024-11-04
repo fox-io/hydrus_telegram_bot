@@ -82,17 +82,20 @@ class HydrusTelegramBot:
 
     def load_config(self):
         # Load the config file.
-        with open('config.json') as config:
-            config_data = json.load(config)
-            self.access_token = config_data['telegram_access_token']
-            self.channel = config_data['telegram_channel']
-            self.bot_id = config_data['telegram_bot_id']
-            self.hydrus_api_key = config_data['hydrus_api_key']
-            self.queue_tag = config_data['queue_tag']
-            self.posted_tag = config_data['posted_tag']
-            self.admins = config_data['admins']
-            self.delay = config_data['delay']
-            self.timezone = config_data['timezone']
+        try:
+            with open('config.json') as config:
+                config_data = json.load(config)
+                self.access_token = config_data['telegram_access_token']
+                self.channel = config_data['telegram_channel']
+                self.bot_id = config_data['telegram_bot_id']
+                self.hydrus_api_key = config_data['hydrus_api_key']
+                self.queue_tag = config_data['queue_tag']
+                self.posted_tag = config_data['posted_tag']
+                self.admins = config_data['admins']
+                self.delay = config_data['delay']
+                self.timezone = config_data['timezone']
+        except FileNotFoundError:
+            print("A file not found error occurred when opening config.json.")
 
     def verify_queue_file(self):
         # Create a queue file if not present.
@@ -122,9 +125,13 @@ class HydrusTelegramBot:
 
     def save_queue(self):
         # Save queue to file.
-        with open('queue.json', 'w+') as queue_file:
-            json.dump(self.queue_data, queue_file)
-        self.queue_loaded = False
+        try:
+            with open('queue.json', 'w+') as queue_file:
+                json.dump(self.queue_data, queue_file)
+        except Exception as e:
+            print("An error occurred while saving queue.json: ", str(e))
+        else:
+            self.queue_loaded = False
 
     def update_queue(self):
         # Update queue from Hydrus, then save queue to file.
@@ -376,8 +383,15 @@ class HydrusTelegramBot:
 
             # Delete the image from disk and queue.
             image_file.close()
-            os.remove(path)
-            self.queue_data['queue'].pop(random_index)
+            try:
+                os.remove(path)
+            except OSError as e:
+                print("An error occurred while deleting the queued image: ", e)
+
+            try:
+                self.queue_data['queue'].pop(random_index)
+            except IndexError as e:
+                print("An error occurred when remove the image from the queue: ", e)
             self.save_queue()
 
             # Send queue size update to terminal.
