@@ -110,9 +110,15 @@ class HydrusTelegramBot:
         # Load queue from file.
         if not self.queue_loaded:
             self.verify_queue_file()
-            with open('queue.json') as queue_file:
-                self.queue_data = json.load(queue_file)
-            self.queue_loaded = True
+            try:
+                with open('queue.json') as queue_file:
+                    self.queue_data = json.load(queue_file)
+            except FileNotFoundError:
+                print("A file not found error occurred when opening queue.json.")
+            except json.JSONDecodeError:
+                print("An error occurred when decoding queue.json.")
+            else:
+                self.queue_loaded = True
 
     def save_queue(self):
         # Save queue to file.
@@ -156,7 +162,8 @@ class HydrusTelegramBot:
         except requests.exceptions.ConnectionError:
             print("    The Hydrus client is not running.")
             return False
-        return True
+        else:
+            return True
 
     # noinspection PyMethodMayBeStatic
     def concatenate_sauce(self, known_urls: list):
@@ -294,15 +301,15 @@ class HydrusTelegramBot:
             img = Image(filename=path)
         except Exception as e:
             print("An error occurred while opening the image: ", str(e))
+        else:
+            if img.width > 10000 or img.height > 10000:
+                img.transform(resize='1024x768')
+                img.save(filename=path)
 
-        if img.width > 10000 or img.height > 10000:
-            img.transform(resize='1024x768')
-            img.save(filename=path)
-
-        if os.path.getsize(path) > 10000000:
-            size_ratio = os.path.getsize(path) / 10000000
-            img.resize((round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio))))
-            img.save(filename=path)
+            if os.path.getsize(path) > 10000000:
+                size_ratio = os.path.getsize(path) / 10000000
+                img.resize((round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio))))
+                img.save(filename=path)
 
     def process_queue(self):
         # Post next image to Telegram and remove it from the queue.
