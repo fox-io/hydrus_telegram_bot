@@ -75,8 +75,10 @@ class HydrusTelegramBot:
         if len(message) > 0:
             for i in range(len(self.admins)):
                 admin = str(self.admins[i])
-                requests.get(
-                    self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
+                try:
+                    requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
+                except requests.exceptions.RequestException as e:
+                    print("An error occurred when communicating with the Telegram bot: ", str(e))
 
     # ----------------------------
 
@@ -373,7 +375,7 @@ class HydrusTelegramBot:
             try:
                 sent_file = requests.get(request, files=telegram_file)
             except requests.exceptions.RequestException as e:
-                print("An error occurred when communicating with the Telegram bot: ", e)
+                print("An error occurred when communicating with the Telegram bot: ", str(e))
             
             if sent_file.json()['ok']:
                 print("    Image sent successfully.")
@@ -386,12 +388,12 @@ class HydrusTelegramBot:
             try:
                 os.remove(path)
             except OSError as e:
-                print("An error occurred while deleting the queued image: ", e)
+                print("An error occurred while deleting the queued image: ", str(e))
 
             try:
                 self.queue_data['queue'].pop(random_index)
             except IndexError as e:
-                print("An error occurred when remove the image from the queue: ", e)
+                print("An error occurred when remove the image from the queue: ", str(e))
             self.save_queue()
 
             # Send queue size update to terminal.
@@ -410,9 +412,12 @@ class HydrusTelegramBot:
 
     def __init__(self):
         # Startup sequence.
-        self.load_config()
-        self.hydrus_client = hydrus_api.Client(self.hydrus_api_key)
-        self.on_scheduler()
+        try:
+            self.load_config()
+            self.hydrus_client = hydrus_api.Client(self.hydrus_api_key)
+            self.on_scheduler()
+        except Exception as e:
+            print("An error occurred during initilization: ", str(e))
 
 
 if __name__ == '__main__':
