@@ -1,3 +1,4 @@
+import math
 import pathlib
 import json
 import random
@@ -303,9 +304,9 @@ class HydrusTelegramBot:
                     img.transform(resize='1024x768')
                     img.save(filename=path)
 
-                while os.path.getsize(path) > 10000000:
-                    img.resize((round(img.width * 0.9), round(img.height * 0.9)))
-                    img.save(filename=path)
+                size_ratio = os.path.getsize(path) / 10000000
+                img.resize((round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio))))
+                img.save(filename=path)
 
             image_file = open(path, 'rb')
             telegram_file = {'photo': image_file}
