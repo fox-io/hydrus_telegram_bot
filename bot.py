@@ -304,7 +304,7 @@ class HydrusTelegramBot:
         else:
             return None
 
-    def reduce_image_size(path):
+    def reduce_image_size(self, path):
         # Telegram has limits on image file size and dimensions. We resize large things here.
         try:
             img = Image(filename=path)
