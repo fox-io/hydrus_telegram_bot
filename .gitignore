@@ -2,6 +2,7 @@
 *.jpeg
 *.jpg
 *.mp4
+*.webm
 /.venv/
 /.idea/
 /.vscode/
@@ -11,3 +12,5 @@
 /config.json.prod
 /config-dev.bat
 /config-prod.bat
+/venv/
+start.bat

@@ -317,7 +317,7 @@ class HydrusTelegramBot:
 
             if os.path.getsize(path) > 10000000:
                 size_ratio = os.path.getsize(path) / 10000000
-                img.resize((round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio))))
+                img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
                 img.save(filename=path)
 
     def get_message_markup(self, image):
