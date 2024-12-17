@@ -304,7 +304,7 @@ class HydrusTelegramBot:
         else:
             return None
 
-    def reduce_image_size(path):
+    def reduce_image_size(self, path):
         # Telegram has limits on image file size and dimensions. We resize large things here.
         try:
             img = Image(filename=path)
@@ -319,6 +319,38 @@ class HydrusTelegramBot:
                 size_ratio = os.path.getsize(path) / 10000000
                 img.resize((round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio))))
                 img.save(filename=path)
+
+    def get_message_markup(self, image):
+        creator = None
+        if "creator" in image:
+            creator = str(image['creator'])
+            if creator == "None" or creator == "":
+                creator = None
+
+        character = None
+        if "character" in image:
+            character = str(image['character'])
+            if character == "None" or character == "":
+                character = None
+
+        sauce = None
+        if "sauce" in image:
+            sauce = self.build_caption_buttons(image['sauce'])
+
+        message_markup = ''
+        if sauce is not None:
+            message_markup = message_markup + '&reply_markup=' + json.dumps(sauce)
+        
+        message_markup = message_markup + '&caption='
+
+        if creator is not None:
+            message_markup = message_markup + 'Uploader:\n' + creator
+
+        if character is not None:
+            if creator is not None:
+                message_markup = message_markup + '\n\n'
+            message_markup = message_markup + 'Character(s):\n' + character
+        return message_markup
 
     def process_queue(self):
         # Post next image to Telegram and remove it from the queue.
@@ -336,40 +368,10 @@ class HydrusTelegramBot:
             telegram_file = {'photo': image_file}
             channel = str(self.channel)
 
-            # Gather available data for creator, character, and sauce buttons.
-            creator = None
-            if "creator" in current_queued_image:
-                creator = str(current_queued_image['creator'])
-                if creator == "None" or creator == "":
-                    creator = None
-
-            character = None
-            if "character" in current_queued_image:
-                character = str(current_queued_image['character'])
-                if character == "None" or character == "":
-                    character = None
-
-            sauce = None
-            if "sauce" in current_queued_image:
-                sauce = self.build_caption_buttons(current_queued_image['sauce'])
-
-            # Assemble the message content
-            message_content = ''
-            if sauce is not None:
-                message_content = message_content + '&reply_markup=' + json.dumps(sauce)
-            
-            message_content = message_content + '&caption='
-
-            if creator is not None:
-                message_content = message_content + 'Uploader:\n' + creator
-
-            if character is not None:
-                if creator is not None:
-                    message_content = message_content + '\n\n'
-                message_content = message_content + 'Character(s):\n' + character
+            message = self.get_message_markup(current_queued_image)
 
             # Build our Telegram bot API URL.
-            request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&' + message_content + '&parse_mode=html', False)
+            request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&' + message + '&parse_mode=html', False)
             
             # Attempt to send the image to our Telegram bot.
             try:
