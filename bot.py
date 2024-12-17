@@ -351,56 +351,62 @@ class HydrusTelegramBot:
                 message_markup = message_markup + '\n\n'
             message_markup = message_markup + 'Character(s):\n' + character
         return message_markup
+    
+    def send_image(self, api_call, image, path):
+        # Attempt to send the image to our Telegram bot.
+        try:
+            sent_file = requests.get(api_call, files=image)
+        except requests.exceptions.RequestException as e:
+            print("An error occurred when communicating with the Telegram bot: ", str(e))
+        
+        if sent_file.json()['ok']:
+            print("    Image sent successfully.")
+        else:
+            print("    Image failed to send.")
+            self.send_message(f"Image failed to send. {path}")
+
+    def delete_from_queue(self, path, index):
+        try:
+            os.remove(path)
+        except OSError as e:
+            print("An error occurred while deleting the queued image: ", str(e))
+
+        try:
+            self.queue_data['queue'].pop(index)
+        except IndexError as e:
+            print("An error occurred when remove the image from the queue: ", str(e))
+        self.save_queue()
+
+        # Send queue size update to terminal.
+        print("Queued images remaining: " + str(len(self.queue_data['queue'])))
 
     def process_queue(self):
         # Post next image to Telegram and remove it from the queue.
         print("Processing next image in queue.")
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
+            # Select a random image from the queue
             random_index = random.randint(0, len(self.queue_data['queue']) - 1)
-
             current_queued_image = self.queue_data['queue'][random_index]
             path = "queue/" + current_queued_image['path']
 
+            # Ensure image filesize and dimensions are compatible with Telegram API
             self.reduce_image_size(path)
 
             image_file = open(path, 'rb')
             telegram_file = {'photo': image_file}
             channel = str(self.channel)
 
+            # Build Telegram bot API URL.
             message = self.get_message_markup(current_queued_image)
-
-            # Build our Telegram bot API URL.
             request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&' + message + '&parse_mode=html', False)
             
-            # Attempt to send the image to our Telegram bot.
-            try:
-                sent_file = requests.get(request, files=telegram_file)
-            except requests.exceptions.RequestException as e:
-                print("An error occurred when communicating with the Telegram bot: ", str(e))
-            
-            if sent_file.json()['ok']:
-                print("    Image sent successfully.")
-            else:
-                print("    Image failed to send.")
-                self.send_message(f"Image failed to send. {path}")
+            # Post the image to Telegram.
+            self.send_image(request, telegram_file, path)
+            image_file.close()
 
             # Delete the image from disk and queue.
-            image_file.close()
-            try:
-                os.remove(path)
-            except OSError as e:
-                print("An error occurred while deleting the queued image: ", str(e))
-
-            try:
-                self.queue_data['queue'].pop(random_index)
-            except IndexError as e:
-                print("An error occurred when remove the image from the queue: ", str(e))
-            self.save_queue()
-
-            # Send queue size update to terminal.
-            print("Queued images remaining: " + str(len(self.queue_data['queue'])))
-
+            self.delete_from_queue(path, random_index)
         else:
             # If queue is empty, alert admin and terminal.
             print("Queue is empty.")
