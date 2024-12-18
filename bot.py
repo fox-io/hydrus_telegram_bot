@@ -194,13 +194,19 @@ class HydrusTelegramBot:
         return False
     
     def get_metadata(self, id):
-        return self.hydrus_client.get_file_metadata(file_ids=id)
+        try:
+            return self.hydrus_client.get_file_metadata(file_ids=id)
+        except Exception as e:
+            print("An error occurred while getting metadata: ", str(e))
+            return None
 
     def save_image_to_queue(self, file_id):
         # Insert an image into the queue.
 
         # Load metadata from Hydrus.
         metadata = self.get_metadata(file_id)
+        if metadata is None:
+            return 0
 
         # Save image from Hydrus to queue folder. Creates filename based on hash.
         filename = str(f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}")
