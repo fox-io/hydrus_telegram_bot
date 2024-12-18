@@ -218,7 +218,11 @@ class HydrusTelegramBot:
             return 0
 
         # Get the tags for the image
-        tags = metadata['metadata'][0]['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
+        try:
+            tags = metadata['metadata'][0]['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
+        except KeyError as e:
+            print("An error occurred while getting the tags: ", str(e))
+            return 0
 
         # Extract creator tag if present.
         creator = None
