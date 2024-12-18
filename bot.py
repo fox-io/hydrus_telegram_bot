@@ -192,12 +192,15 @@ class HydrusTelegramBot:
                 if entry['path'] == filename:
                     return True
         return False
+    
+    def get_metadata(self, id):
+        return self.hydrus_client.get_file_metadata(file_ids=id)
 
     def save_image_to_queue(self, file_id):
         # Insert an image into the queue.
 
         # Load metadata from Hydrus.
-        metadata = self.hydrus_client.get_file_metadata(file_ids=file_id)
+        metadata = self.get_metadata(file_id)
 
         # Save image from Hydrus to queue folder. Creates filename based on hash.
         filename = str(f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}")
