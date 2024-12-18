@@ -201,75 +201,80 @@ class HydrusTelegramBot:
             return None
 
     def save_image_to_queue(self, file_id):
-        # Insert an image into the queue.
-
-        # Load metadata from Hydrus.
-        metadata = self.get_metadata(file_id)
-        if metadata is None:
-            return 0
-
-        # Save image from Hydrus to queue folder. Creates filename based on hash.
-        filename = str(f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}")
-        path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
         try:
-            path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
+            # Insert an image into the queue.
+
+            # Load metadata from Hydrus.
+            metadata = self.get_metadata(file_id)
+            if metadata is None:
+                return 0
+
+            # Save image from Hydrus to queue folder. Creates filename based on hash.
+            filename = str(f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}")
+            path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
+            try:
+                path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
+            except Exception as e:
+                print("An error occurred while saving the image to the queue: ", str(e))
+                return 0
+
+            # Get the tags for the image
+            try:
+                tags = metadata['metadata'][0]['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
+            except KeyError as e:
+                print("An error occurred while getting the tags: ", str(e))
+                return 0
+
+            # Extract creator tag if present.
+            creator = None
+            for tag in tags:
+                if "creator:" in tag:
+                    creator_tag = tag.split(":")[1]
+                    creator_name = creator_tag.title()
+                    creator_urlencoded = creator_tag.replace(" ", "_")
+                    creator_urlencoded = urllib.parse.quote(creator_urlencoded)
+                    creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
+                    creator = creator_markup
+
+            # Extract character tag(s) if present.
+            character = None
+            for tag in tags:
+                if "character:" in tag:
+                    character_tag = tag.split(":")[1]
+                    # Some tags have "(character)" in their tag name. For display purposes, we don't need this.
+                    # We also capitalize the character names in the display portion of the link.
+                    character_name = character_tag.replace(" (character)", "")
+                    character_name = character_name.title()
+                    character_urlencoded = character_tag.replace(" ", "_")
+                    character_urlencoded = urllib.parse.quote(character_urlencoded)
+                    character_markup = f"<a href=\"https://e621.net/posts?tags={character_urlencoded}\">{character_name}</a>"
+                    character = character is None and character_markup or character + "\n" + character_markup
+
+            # Create sauce links.
+            sauce = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
+
+            # Add image to queue if not present.
+            if not self.image_is_queued(filename):
+                # Assemble image data into a dict
+                image_data = {'path': filename}
+                if sauce is not None and sauce != "":
+                    image_data.update({'sauce': sauce})
+
+                if creator is not None and creator != "":
+                    image_data.update({'creator': creator})
+
+                if character is not None and character != "":
+                    image_data.update({'character': character})
+
+                # Insert image data dict into queue.
+                self.queue_data['queue'].append(image_data)
+                self.save_queue()
+                return 1
+            else:
+                return 0
+            
         except Exception as e:
             print("An error occurred while saving the image to the queue: ", str(e))
-            return 0
-
-        # Get the tags for the image
-        try:
-            tags = metadata['metadata'][0]['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
-        except KeyError as e:
-            print("An error occurred while getting the tags: ", str(e))
-            return 0
-
-        # Extract creator tag if present.
-        creator = None
-        for tag in tags:
-            if "creator:" in tag:
-                creator_tag = tag.split(":")[1]
-                creator_name = creator_tag.title()
-                creator_urlencoded = creator_tag.replace(" ", "_")
-                creator_urlencoded = urllib.parse.quote(creator_urlencoded)
-                creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
-                creator = creator_markup
-
-        # Extract character tag(s) if present.
-        character = None
-        for tag in tags:
-            if "character:" in tag:
-                character_tag = tag.split(":")[1]
-                # Some tags have "(character)" in their tag name. For display purposes, we don't need this.
-                # We also capitalize the character names in the display portion of the link.
-                character_name = character_tag.replace(" (character)", "")
-                character_name = character_name.title()
-                character_urlencoded = character_tag.replace(" ", "_")
-                character_urlencoded = urllib.parse.quote(character_urlencoded)
-                character_markup = f"<a href=\"https://e621.net/posts?tags={character_urlencoded}\">{character_name}</a>"
-                character = character is None and character_markup or character + "\n" + character_markup
-
-        # Create sauce links.
-        sauce = self.concatenate_sauce(metadata['metadata'][0]['known_urls'])
-
-        # Add image to queue if not present.
-        if not self.image_is_queued(filename):
-            # Assemble image data into a dict
-            image_data = {'path': filename}
-            if sauce is not None and sauce != "":
-                image_data.update({'sauce': sauce})
-
-            if creator is not None and creator != "":
-                image_data.update({'creator': creator})
-
-            if character is not None and character != "":
-                image_data.update({'character': character})
-
-            # Insert image data dict into queue.
-            self.queue_data['queue'].append(image_data)
-            self.save_queue()
-            return 1
-        else:
             return 0
 
     def get_new_hydrus_files(self):
