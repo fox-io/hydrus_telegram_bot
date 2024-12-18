@@ -211,7 +211,11 @@ class HydrusTelegramBot:
         # Save image from Hydrus to queue folder. Creates filename based on hash.
         filename = str(f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}")
         path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
-        path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
+        try:
+            path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
+        except Exception as e:
+            print("An error occurred while saving the image to the queue: ", str(e))
+            return 0
 
         # Get the tags for the image
         tags = metadata['metadata'][0]['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
