@@ -418,13 +418,17 @@ class HydrusTelegramBot:
             if path.endswith(".webm"):
                 # Use ffmpeg to convert webm to mp4
                 os.system(f"ffmpeg -i {path} -c:v libx264 -c:a aac -strict experimental {path}.mp4")
-                telegram_file = {'video': open(path + ".mp4", 'rb')}
+                media_file = open(path + ".mp4", 'rb')
+                telegram_file = {'video': media_file}
                 api_method = 'sendVideo'
             else:
                 # Ensure image filesize and dimensions are compatible with Telegram API
                 self.reduce_image_size(path)
-                telegram_file = {'photo': open(path, 'rb')}
+                media_file = {'photo': open(path, 'rb')}
+                telegram_file = {'photo': media_file}
                 api_method = 'sendPhoto'
+
+            media_file.close()
 
             # Build Telegram bot API URL.
             message = self.get_message_markup(current_queued_image)
