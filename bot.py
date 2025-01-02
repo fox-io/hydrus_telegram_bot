@@ -420,8 +420,11 @@ class HydrusTelegramBot:
             if path.endswith(".webm"):
                 # Use ffmpeg to convert webm to mp4
                 os.system(f"ffmpeg -i {path} -c:v libx264 -c:a aac -strict experimental {path}.mp4")
+                # Use ffmpeg to extract thumbnail from mp4
+                os.system(f"ffmpeg -i {path}.mp4 -vframes 1 {path}.jpg")
+                thumb_file = open(path + ".jpg", 'rb')
                 media_file = open(path + ".mp4", 'rb')
-                telegram_file = {'video': media_file}
+                telegram_file = {'video': media_file, 'thumbnail': thumb_file}
                 api_method = 'sendVideo'
             else:
                 # Ensure image filesize and dimensions are compatible with Telegram API
@@ -438,6 +441,9 @@ class HydrusTelegramBot:
             self.send_image(request, telegram_file, path)
 
             media_file.close()
+            if api_method == 'sendVideo':
+                thumb_file.close()
+                os.remove(path + ".jpg")
 
             # Delete the image from disk and queue.
             self.delete_from_queue(path, random_index)
