@@ -390,6 +390,8 @@ class HydrusTelegramBot:
     def delete_from_queue(self, path, index):
         try:
             os.remove(path)
+            if path.endswith(".webm"):
+                os.remove(path + ".mp4")
         except OSError as e:
             print("An error occurred while deleting the queued image: ", str(e))
 
@@ -424,11 +426,9 @@ class HydrusTelegramBot:
             else:
                 # Ensure image filesize and dimensions are compatible with Telegram API
                 self.reduce_image_size(path)
-                media_file = {'photo': open(path, 'rb')}
+                media_file = open(path, 'rb')
                 telegram_file = {'photo': media_file}
                 api_method = 'sendPhoto'
-
-            media_file.close()
 
             # Build Telegram bot API URL.
             message = self.get_message_markup(current_queued_image)
@@ -436,6 +436,8 @@ class HydrusTelegramBot:
             
             # Post the image to Telegram.
             self.send_image(request, telegram_file, path)
+
+            media_file.close()
 
             # Delete the image from disk and queue.
             self.delete_from_queue(path, random_index)
