@@ -412,20 +412,26 @@ class HydrusTelegramBot:
             current_queued_image = self.queue_data['queue'][random_index]
             path = "queue/" + current_queued_image['path']
 
-            # Ensure image filesize and dimensions are compatible with Telegram API
-            self.reduce_image_size(path)
-
-            image_file = open(path, 'rb')
-            telegram_file = {'photo': image_file}
             channel = str(self.channel)
+
+            # Check if variable path ends in webm
+            if path.endswith(".webm"):
+                # Use ffmpeg to convert webm to mp4
+                os.system(f"ffmpeg -i {path} -c:v libx264 -c:a aac -strict experimental {path}.mp4")
+                telegram_file = {'video': open(path + ".mp4", 'rb')}
+                api_method = 'sendVideo'
+            else:
+                # Ensure image filesize and dimensions are compatible with Telegram API
+                self.reduce_image_size(path)
+                telegram_file = {'photo': open(path, 'rb')}
+                api_method = 'sendPhoto'
 
             # Build Telegram bot API URL.
             message = self.get_message_markup(current_queued_image)
-            request = self.build_telegram_api_url('sendPhoto', '?chat_id=' + channel + '&' + message + '&parse_mode=html', False)
+            request = self.build_telegram_api_url(api_method, '?chat_id=' + channel + '&' + message + '&parse_mode=html', False)
             
             # Post the image to Telegram.
             self.send_image(request, telegram_file, path)
-            image_file.close()
 
             # Delete the image from disk and queue.
             self.delete_from_queue(path, random_index)
