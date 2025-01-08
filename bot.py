@@ -371,7 +371,6 @@ class HydrusTelegramBot:
 
         sauce = None
         if "sauce" in image:
-            print(image['sauce'])
             sauce = self.build_caption_buttons(image['sauce'])
 
         message_markup = ''
