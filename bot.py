@@ -180,7 +180,7 @@ class HydrusTelegramBot:
         sauce = ''
         for url in known_urls:
             # Skip direct links.
-            if url.startswith("https://www."):
+            if url.startswith("https://www.") or url.startswith("https://e621.net/posts"):
                 sauce = sauce + url + ','
         return sauce
     
@@ -302,13 +302,21 @@ class HydrusTelegramBot:
             url_row = -1
             for line in caption.split(','):
                 if 'http' in line:
-                    if url_column == 0:
-                        keyboard['inline_keyboard'].append([])
-                        url_row += 1
                     link = urlparse(line)
+                    dead_link = False
+
                     # Pretty print known site names.
                     if 'furaffinity' in link.netloc:
                         website = 'Furaffinity'
+
+                        # Check if the link is dead on Furaffinity.
+                        fa_url = link.geturl()
+                        try:
+                            response = requests.get(fa_url)
+                            if "The submission you are trying to find is not in our database." in response.text:
+                                dead_link = True
+                        except requests.exceptions.RequestException as e:
+                            print("An error occurred when checking the Furaffinity link: ", str(e))
                     elif 'e621' in link.netloc:
                         website = 'e621'
                     elif 'reddit' in link.netloc:
@@ -316,12 +324,18 @@ class HydrusTelegramBot:
                         website = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
                     else:
                         website = link.netloc
-                    url = link.geturl()
-                    keyboard['inline_keyboard'][url_row].append({
-                        'text': website,
-                        'url': url
-                    })
-                    url_column = url_column == 0 and 1 or 0
+
+                    # Only add the button if the link is not dead.
+                    if not dead_link:
+                        if url_column == 0:
+                            keyboard['inline_keyboard'].append([])
+                            url_row += 1
+                        url = link.geturl()
+                        keyboard['inline_keyboard'][url_row].append({
+                            'text': website,
+                            'url': url
+                        })
+                        url_column = url_column == 0 and 1 or 0
             return keyboard
         else:
             return None
@@ -357,6 +371,7 @@ class HydrusTelegramBot:
 
         sauce = None
         if "sauce" in image:
+            print(image['sauce'])
             sauce = self.build_caption_buttons(image['sauce'])
 
         message_markup = ''
