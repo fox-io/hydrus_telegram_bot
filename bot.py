@@ -303,18 +303,21 @@ class HydrusTelegramBot:
             for line in caption.split(','):
                 if 'http' in line:
                     link = urlparse(line)
-                    dead_link = False
+                    skip_link = False
 
                     # Pretty print known site names.
                     if 'furaffinity' in link.netloc:
                         website = 'Furaffinity'
+
+                        if 'user' in link.path:
+                            skip_link = True
 
                         # Check if the link is dead on Furaffinity.
                         fa_url = link.geturl()
                         try:
                             response = requests.get(fa_url)
                             if "The submission you are trying to find is not in our database." in response.text:
-                                dead_link = True
+                                skip_link = True
                         except requests.exceptions.RequestException as e:
                             print("An error occurred when checking the Furaffinity link: ", str(e))
                     elif 'e621' in link.netloc:
@@ -326,7 +329,7 @@ class HydrusTelegramBot:
                         website = link.netloc
 
                     # Only add the button if the link is not dead.
-                    if not dead_link:
+                    if not skip_link:
                         if url_column == 0:
                             keyboard['inline_keyboard'].append([])
                             url_row += 1
