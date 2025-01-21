@@ -46,8 +46,6 @@ class HydrusTelegramBot:
         hydrus_api.Permission.MANAGE_PAGES,
     )
 
-    # ----------------------------
-
     def get_next_update_time(self):
         # Calculate the next update time.
         current_time = (time.time() + ((60 * 60) * self.timezone))
@@ -79,8 +77,6 @@ class HydrusTelegramBot:
                     requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
                 except requests.exceptions.RequestException as e:
                     print("An error occurred when communicating with the Telegram bot: ", str(e))
-
-    # ----------------------------
 
     def load_config(self):
         # Load the config file.
@@ -236,6 +232,15 @@ class HydrusTelegramBot:
                     creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
                     creator = creator_markup
 
+            # Extract title tag(s) if present.
+            title = None
+            for tag in tags:
+                if "title:" in tag:
+                    title_tag = tag.split(":")[1]
+                    title_name = title_tag.title()
+                    title_markup = f"{title_name}"
+                    title = title is None and title_markup or title + "\n" + title_markup
+
             # Extract character tag(s) if present.
             character = None
             for tag in tags:
@@ -262,6 +267,9 @@ class HydrusTelegramBot:
 
                 if creator is not None and creator != "":
                     image_data.update({'creator': creator})
+
+                if title is not None and title != "":
+                    image_data.update({'title': title})
 
                 if character is not None and character != "":
                     image_data.update({'character': character})
@@ -366,6 +374,12 @@ class HydrusTelegramBot:
             if creator == "None" or creator == "":
                 creator = None
 
+        title = None
+        if "title" in image:
+            title = str(image['title'])
+            if title == "None" or title == "":
+                title = None
+
         character = None
         if "character" in image:
             character = str(image['character'])
@@ -382,7 +396,12 @@ class HydrusTelegramBot:
         
         message_markup = message_markup + '&caption='
 
+        if title is not None:
+            message_markup = message_markup + 'Title(s):\n' + title
+
         if creator is not None:
+            if title is not None:
+                message_markup = message_markup + '\n\n'
             message_markup = message_markup + 'Uploader:\n' + creator
 
         if character is not None:
