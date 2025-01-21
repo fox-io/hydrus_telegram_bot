@@ -237,7 +237,7 @@ class HydrusTelegramBot:
             for tag in tags:
                 if "title:" in tag:
                     title_tag = tag.split(":")[1]
-                    title_name = title_tag.title()
+                    title_name = title_tag
                     title_markup = f"{title_name}"
                     title = title is None and title_markup or title + "\n" + title_markup
 
