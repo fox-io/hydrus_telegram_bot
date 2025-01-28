@@ -412,12 +412,14 @@ class HydrusTelegramBot:
     
     def send_image(self, api_call, image, path):
         # Attempt to send the image to our Telegram bot.
+        sent_file = None
+
         try:
             sent_file = requests.get(api_call, files=image)
         except requests.exceptions.RequestException as e:
             print("An error occurred when communicating with the Telegram bot: ", str(e))
         
-        if sent_file.json()['ok']:
+        if sent_file and sent_file.json()['ok']:
             print("    Image sent successfully.")
         else:
             print("    Image failed to send.")
