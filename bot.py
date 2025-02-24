@@ -198,9 +198,9 @@ class HydrusTelegramBot:
         
     def replace_html_entities(self, tag: str):
         # Replace HTML entities in tags.
-        tag = tag.replace("&", "&amp;")
-        tag = tag.replace("<", "&lt;")
-        tag = tag.replace(">", "&gt;")
+        tag = tag.replace("&", "+")
+        tag = tag.replace("<", "≺")
+        tag = tag.replace(">", "≻")
         return tag
 
     def save_image_to_queue(self, file_id):
@@ -484,6 +484,7 @@ class HydrusTelegramBot:
             # Build Telegram bot API URL.
             message = self.get_message_markup(current_queued_image)
             request = self.build_telegram_api_url(api_method, '?chat_id=' + channel + '&' + message + '&parse_mode=html', False)
+            print(request)
             
             # Post the image to Telegram.
             self.send_image(request, telegram_file, path)
