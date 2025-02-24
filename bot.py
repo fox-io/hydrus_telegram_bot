@@ -195,6 +195,13 @@ class HydrusTelegramBot:
         except Exception as e:
             print("An error occurred while getting metadata: ", str(e))
             return None
+        
+    def replace_html_entities(self, tag: str):
+        # Replace HTML entities in tags.
+        tag = tag.replace("&", "&amp;")
+        tag = tag.replace("<", "&lt;")
+        tag = tag.replace(">", "&gt;")
+        return tag
 
     def save_image_to_queue(self, file_id):
         try:
@@ -225,6 +232,7 @@ class HydrusTelegramBot:
             creator = None
             for tag in tags:
                 if "creator:" in tag:
+                    tag = self.replace_html_entities(tag)
                     creator_tag = tag.split(":")[1]
                     creator_name = creator_tag.title()
                     creator_urlencoded = creator_tag.replace(" ", "_")
@@ -236,6 +244,7 @@ class HydrusTelegramBot:
             title = None
             for tag in tags:
                 if "title:" in tag:
+                    tag = self.replace_html_entities(tag)
                     title_tag = tag.split(":")[1]
                     title_name = title_tag
                     title_markup = f"{title_name}"
@@ -245,6 +254,7 @@ class HydrusTelegramBot:
             character = None
             for tag in tags:
                 if "character:" in tag:
+                    tag = self.replace_html_entities(tag)
                     character_tag = tag.split(":")[1]
                     # Some tags have "(character)" in their tag name. For display purposes, we don't need this.
                     # We also capitalize the character names in the display portion of the link.
