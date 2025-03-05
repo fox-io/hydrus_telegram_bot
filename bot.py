@@ -60,14 +60,8 @@ class HydrusTelegramBot:
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
         # Constructs a Telegram API url for bot communication.
-        url = 'https://api.telegram.org/'
-        if is_file:
-            url += 'file/'
-        url += 'bot' + self.access_token + '/'
-        if not is_file:
-            url += method
-        url += payload
-        return url
+        url = f"https://api.telegram.org/{'file/' if is_file else ''}bot{self.access_token}/{method if not is_file else ''}"
+        return url + payload if payload else url
 
     def send_message(self, message):
         # Sends a message to all admin users.
