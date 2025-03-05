@@ -379,9 +379,11 @@ class HydrusTelegramBot:
         # Telegram has limits on image file size and dimensions. We resize large things here.
         try:
             img = Image(filename=path)
-        except Exception as e:
-            print("An error occurred while opening the image: ", str(e))
-        else:
+
+            if img.format.lower() not in ["jpeg", "jpg", "png", "gif"]:
+                print(f"Skipping resize: Unsupported format {img.format}")
+                return
+            
             if img.width > 10000 or img.height > 10000:
                 img.transform(resize='1024x768')
                 img.save(filename=path)
@@ -390,6 +392,8 @@ class HydrusTelegramBot:
                 size_ratio = os.path.getsize(path) / 10000000
                 img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
                 img.save(filename=path)
+        except Exception as e:
+            print("An error occurred while opening the image: ", str(e))
 
     def get_message_markup(self, image):
         creator = None
