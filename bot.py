@@ -205,7 +205,8 @@ class HydrusTelegramBot:
 
             # Load metadata from Hydrus.
             metadata = self.get_metadata(file_id)
-            if metadata is None:
+            if not metadata or 'metadata' not in metadata or not metadata['metadata']:
+                print(f"Warning: No metadata found for file_id {file_id}.")
                 return 0
 
             # Save image from Hydrus to queue folder. Creates filename based on hash.
