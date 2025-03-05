@@ -232,11 +232,11 @@ class HydrusTelegramBot:
                 return 0
 
             # Get the tags for the image
-            try:
-                tags = file_info['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
-            except KeyError as e:
-                print("An error occurred while getting the tags: ", str(e))
+            tags_dict = file_info.get("tags", {})
+            if self.hydrus_service_key["downloader_tags"] not in tags_dict:
+                print(f"Warning: No downloader tags found for file_id {file_id}.")
                 return 0
+            tags = tags_dict[self.hydrus_service_key["downloader_tags"]].get('display_tags', {}).get('0', [])
 
             # Extract creator tag if present.
             creator = None
