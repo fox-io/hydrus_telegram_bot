@@ -69,7 +69,7 @@ class HydrusTelegramBot:
             for i in range(len(self.admins)):
                 admin = str(self.admins[i])
                 try:
-                    requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'))
+                    requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'), timeout=10)
                 except requests.exceptions.RequestException as e:
                     print("An error occurred when communicating with the Telegram bot: ", str(e))
 
@@ -343,7 +343,7 @@ class HydrusTelegramBot:
                         # Check if the link is dead on Furaffinity.
                         fa_url = link.geturl()
                         try:
-                            response = requests.get(fa_url)
+                            response = requests.get(fa_url, timeout=10)
                             if "The submission you are trying to find is not in our database." in response.text:
                                 skip_link = True
                         except requests.exceptions.RequestException as e:
@@ -435,7 +435,7 @@ class HydrusTelegramBot:
         sent_file = None
 
         try:
-            sent_file = requests.get(api_call, files=image)
+            sent_file = requests.get(api_call, files=image, timeout=10)
         except requests.exceptions.RequestException as e:
             print("An error occurred when communicating with the Telegram bot: ", str(e))
         
@@ -529,4 +529,10 @@ class HydrusTelegramBot:
 if __name__ == '__main__':
     # Main program loop.
     app = HydrusTelegramBot()
-    app.scheduler.run()
+    while True:
+        try:
+            app.scheduler.run(blocking=False)
+            time.sleep(5)
+        except KeyboardInterrupt:
+            print("Exiting...")
+            break
