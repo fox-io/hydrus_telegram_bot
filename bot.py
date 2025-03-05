@@ -65,13 +65,17 @@ class HydrusTelegramBot:
 
     def send_message(self, message):
         # Sends a message to all admin users.
-        if len(message) > 0:
-            for i in range(len(self.admins)):
-                admin = str(self.admins[i])
-                try:
-                    requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'), timeout=10)
-                except requests.exceptions.RequestException as e:
-                    print("An error occurred when communicating with the Telegram bot: ", str(e))
+        if not message:
+            return
+        
+        for admin in self.admins:
+            try:
+                response = requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'), timeout=10)
+                response_json = response.json()
+                if not response_json("ok"):
+                    print(f"Failed to send message to admin {admin}: {response_json}")
+            except requests.exceptions.RequestException as e:
+                print(f"An error occurred when communicating with Telegram: {e}")
 
     def load_config(self):
         # Load the config file.
