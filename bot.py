@@ -70,9 +70,9 @@ class HydrusTelegramBot:
         
         for admin in self.admins:
             try:
-                response = requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + admin + '&text=' + message + '&parse_mode=Markdown'), timeout=10)
+                response = requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + str(admin) + '&text=' + message + '&parse_mode=Markdown'), timeout=10)
                 response_json = response.json()
-                if not response_json("ok"):
+                if not response_json.get("ok", False):  # Correct way to access "ok" key
                     print(f"Failed to send message to admin {admin}: {response_json}")
             except requests.exceptions.RequestException as e:
                 print(f"An error occurred when communicating with Telegram: {e}")
@@ -209,7 +209,7 @@ class HydrusTelegramBot:
 
             # Load metadata from Hydrus.
             metadata = self.get_metadata(file_id)
-            if not metadata or 'metadata' not in metadata or not metadata['metadata']:
+            if not metadata or 'metadata' not in metadata or not metadata["metadata"]:
                 print(f"Warning: No metadata found for file_id {file_id}.")
                 return 0
             
@@ -502,7 +502,7 @@ class HydrusTelegramBot:
 
             # Build Telegram bot API URL.
             message = self.get_message_markup(current_queued_image)
-            request = self.build_telegram_api_url(api_method, '?chat_id=' + channel + '&' + message + '&parse_mode=html', False)
+            request = self.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + '&' + message + '&parse_mode=html', False)
             
             # Post the image to Telegram.
             self.send_image(request, telegram_file, path)
