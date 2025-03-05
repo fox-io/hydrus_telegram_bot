@@ -208,19 +208,24 @@ class HydrusTelegramBot:
             if not metadata or 'metadata' not in metadata or not metadata['metadata']:
                 print(f"Warning: No metadata found for file_id {file_id}.")
                 return 0
+            
+            file_info = metadata['metadata'][0]
+            if 'hash' not in file_info or 'ext' not in file_info or 'file_id' not in file_info or 'tags' not in file_info:
+                print(f"Warning: Missing file info for file_id {file_id}.")
+                return 0
 
             # Save image from Hydrus to queue folder. Creates filename based on hash.
-            filename = str(f"{metadata['metadata'][0]['hash']}{metadata['metadata'][0]['ext']}")
+            filename = str(f"{file_info['hash']}{file_info['ext']}")
             path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
             try:
-                path.write_bytes(self.hydrus_client.get_file(file_id=metadata['metadata'][0]['file_id']).content)
+                path.write_bytes(self.hydrus_client.get_file(file_id=file_info['file_id']).content)
             except Exception as e:
                 print("An error occurred while saving the image to the queue: ", str(e))
                 return 0
 
             # Get the tags for the image
             try:
-                tags = metadata['metadata'][0]['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
+                tags = file_info['tags'][self.hydrus_service_key['downloader_tags']]['display_tags']['0']
             except KeyError as e:
                 print("An error occurred while getting the tags: ", str(e))
                 return 0
