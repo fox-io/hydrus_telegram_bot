@@ -307,7 +307,11 @@ class HydrusTelegramBot:
         if not self.check_hydrus_permissions():
             return
         num_images = 0
-        all_tagged_file_ids = self.hydrus_client.search_files([self.queue_tag])["file_ids"]
+        response = self.hydrus_client.search_files([self.queue_tag])
+        all_tagged_file_ids = response.get("file_ids", [])
+        if not all_tagged_file_ids:
+            print("    No new images found.")
+            return
         for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
             for file_id in file_ids:
                 num_images += self.save_image_to_queue([file_id])
