@@ -14,3 +14,4 @@
 /config-prod.bat
 /venv/
 start.bat
+.DS_Store
