@@ -218,9 +218,13 @@ class HydrusTelegramBot:
             filename = str(f"{file_info['hash']}{file_info['ext']}")
             path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
             try:
-                path.write_bytes(self.hydrus_client.get_file(file_id=file_info['file_id']).content)
+                file_content = self.hydrus_client.get_file(file_id=file_info['file_id']).content
+                if not file_content:
+                    print(f"Warning: No file content found for file_id {file_info['file_id']}.")
+                    return 0
+                path.write_bytes(file_content)
             except Exception as e:
-                print("An error occurred while saving the image to the queue: ", str(e))
+                print(f"An error occurred while saving the image to the queue: {filename}: {e}")
                 return 0
 
             # Get the tags for the image
