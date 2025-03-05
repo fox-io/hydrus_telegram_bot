@@ -93,15 +93,16 @@ class HydrusTelegramBot:
                 self.admins = config_data['admins']
                 self.delay = config_data['delay']
                 self.timezone = config_data['timezone']
-        except FileNotFoundError:
-            print("A file not found error occurred when opening config.json.")
+        except (FileNotFoundError, json.JSONDecodeError):
+            print("Error: config.json missing or corrupted.")
 
     def verify_queue_file(self):
         # Create a queue file if not present.
         try:
             with open('queue.json', 'r'):
                 pass
-        except FileNotFoundError:
+        except (FileNotFoundError, json.JSONDecodeError):
+            print("Warning: queue.json missing or corrupted.")
             with open('queue.json', 'w+') as queue_file:
                 queue_file.write(json.dumps({
                     "queue": []
