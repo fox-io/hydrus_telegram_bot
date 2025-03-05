@@ -455,16 +455,17 @@ class HydrusTelegramBot:
 
     def delete_from_queue(self, path, index):
         try:
-            os.remove(path)
-            if path.endswith(".webm"):
+            if os.path.exists(path):
+                os.remove(path)
+            if path.endswith(".webm") and os.path.exists(path + ".mp4"):
                 os.remove(path + ".mp4")
         except OSError as e:
-            print("An error occurred while deleting the queued image: ", str(e))
+            print(f"Error deleting file {path}: {e}")
 
         try:
             self.queue_data['queue'].pop(index)
         except IndexError as e:
-            print("An error occurred when remove the image from the queue: ", str(e))
+            print(f"Error removing image from queue: {e}")
         self.save_queue()
 
         # Send queue size update to terminal.
