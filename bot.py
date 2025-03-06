@@ -475,7 +475,7 @@ class HydrusTelegramBot:
     def process_queue(self):
         # Post next image to Telegram and remove it from the queue.
         print("Processing next image in queue.")
-        if not self.queue_loaded():
+        if not self.queue_loaded:
             self.load_queue()
 
         if not self.queue_data["queue"] and len(self.queue_data["queue"]) == 0:
