@@ -426,7 +426,7 @@ class HydrusTelegramBot:
             caption_parts.append('Character(s):\n' + str(image['character']))
         caption = "\n\n".join(caption_parts) if caption_parts else "No info."
         if len(caption) > 1024:
-            caption = caption[:1021] + "..."
+            caption = caption[:1021].rsplit('\n', 1)[0] + "..."
         message_markup += f"&caption={caption}"
 
         return message_markup
