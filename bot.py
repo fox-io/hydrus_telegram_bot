@@ -446,10 +446,16 @@ class HydrusTelegramBot:
     def delete_from_queue(self, path, index):
         try:
             if os.path.exists(path):
-                os.remove(path)
+                try:
+                    os.remove(path)
+                except OSError as ose:
+                    print(f"Error deleting file {path}: {ose}")
             if path.endswith(".webm") and os.path.exists(path + ".mp4"):
-                os.remove(path + ".mp4")
-        except OSError as e:
+                try:
+                    os.remove(path + ".mp4")
+                except OSError as ose:
+                    print(f"Error deleting file {path + '.mp4'}: {ose}")
+        except Exception as e:
             print(f"Error deleting file {path}: {e}")
 
         try:
