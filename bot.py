@@ -63,7 +63,9 @@ class HydrusTelegramBot:
         url = f"https://api.telegram.org/{'file/' if is_file else ''}bot{self.access_token}"
         if not is_file and method:
             url += f"/{method}"
-        return (url + payload) if payload else url
+        if payload:
+            url += f"?{payload.lstrip('?')}" # Make sure payload starts with a ?.
+        return url
 
     def send_message(self, message):
         # Sends a message to all admin users.
@@ -451,12 +453,11 @@ class HydrusTelegramBot:
         
     def delete_from_queue(self, path, index):
         try:
-            if os.path.exists(path):
-                try:
-                    os.remove(path)
-                except OSError as ose:
-                    print(f"Error deleting file {path}: {ose}")
-            if path.endswith(".webm") and os.path.exists(path + ".mp4"):
+            try:
+                os.remove(path)
+            except OSError as ose:
+                print(f"Error deleting file {path}: {ose}")
+            if path.endswith(".webm"):
                 try:
                     os.remove(path + ".mp4")
                 except OSError as ose:
