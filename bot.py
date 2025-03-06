@@ -67,25 +67,6 @@ class HydrusTelegramBot:
             url += f"?{payload.lstrip('?')}" # Make sure payload starts with a ?.
         return url
 
-    def send_message(self, message):
-        # Sends a message to all admin users.
-        if not message:
-            return
-        
-        for admin in self.admins:
-            try:
-                payload = {
-                    'chat_id': str(admin),
-                    'text': message,
-                    'parse_mode': 'Markdown'
-                }
-                response = requests.get(self.build_telegram_api_url('sendMessage', '?' + urllib.parse.urlencode(payload)), timeout=10)
-                response_json = response.json()
-                if not response_json.get("ok", False):  # Correct way to access "ok" key
-                    print(f"Failed to send message to admin {admin}: {response_json}")
-            except requests.exceptions.RequestException as e:
-                print(f"An error occurred when communicating with Telegram: {e}")
-
     def load_config(self):
         # Load the config file.
         try:
@@ -427,6 +408,25 @@ class HydrusTelegramBot:
         message_markup += f"&caption={caption}"
 
         return message_markup
+    
+    def send_message(self, message):
+        # Sends a message to all admin users.
+        if not message:
+            return
+        
+        for admin in self.admins:
+            try:
+                payload = {
+                    'chat_id': str(admin),
+                    'text': message,
+                    'parse_mode': 'Markdown'
+                }
+                response = requests.get(self.build_telegram_api_url('sendMessage', '?' + urllib.parse.urlencode(payload)), timeout=10)
+                response_json = response.json()
+                if not response_json.get("ok", False):  # Correct way to access "ok" key
+                    print(f"Failed to send message to admin {admin}: {response_json}")
+            except requests.exceptions.RequestException as e:
+                print(f"An error occurred when communicating with Telegram: {e}")
     
     def send_image(self, api_call, image, path):
         # Attempt to send the image to our Telegram bot.
