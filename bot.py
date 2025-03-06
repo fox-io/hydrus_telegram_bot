@@ -403,46 +403,31 @@ class HydrusTelegramBot:
             print("An error occurred while opening the image: ", str(e))
 
     def get_message_markup(self, image):
-        creator = None
-        if "creator" in image:
-            creator = str(image['creator'])
-            if creator == "None" or creator == "":
-                creator = None
-
-        title = None
-        if "title" in image:
-            title = str(image['title'])
-            if title == "None" or title == "":
-                title = None
-
-        character = None
-        if "character" in image:
-            character = str(image['character'])
-            if character == "None" or character == "":
-                character = None
-
-        sauce = None
-        if "sauce" in image:
-            sauce = self.build_caption_buttons(image['sauce'])
-
+        # Build the message markup for the Telegram post.
         message_markup = ''
-        if sauce is not None:
-            message_markup = message_markup + '&reply_markup=' + json.dumps(sauce)
         
+        # Sauce Buttons
+        sauce = self.build_caption_buttons(image['sauce']) if "sauce" in image else None
+        if sauce:
+            message_markup = message_markup + '&reply_markup=' + json.dumps(sauce)
+        # Caption Text
         message_markup = message_markup + '&caption='
-
-        if title is not None:
-            message_markup = message_markup + 'Title(s):\n' + title
-
-        if creator is not None:
-            if title is not None:
+        #     Title
+        if "title" in image and image["title"]:
+            message_markup = message_markup + 'Title(s):\n' + str(image['title'])
+        #     Creator
+        if "creator" in image and image["creator"]:
+            if "title" in image and image["title"]:
                 message_markup = message_markup + '\n\n'
-            message_markup = message_markup + 'Uploader:\n' + creator
-
-        if character is not None:
-            if creator is not None:
+            message_markup = message_markup + 'Uploader:\n' + str(image['creator'])
+        #     Character
+        if "character" in image and image["character"]:
+            if "creator" in image and image["creator"]:
                 message_markup = message_markup + '\n\n'
-            message_markup = message_markup + 'Character(s):\n' + character
+            elif "title" in image and image["title"]:
+                message_markup = message_markup + '\n\n'
+            message_markup = message_markup + 'Character(s):\n' + str(image['character'])
+
         return message_markup
     
     def send_image(self, api_call, image, path):
