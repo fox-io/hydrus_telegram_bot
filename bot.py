@@ -434,15 +434,16 @@ class HydrusTelegramBot:
 
         try:
             sent_file = requests.get(api_call, files=image, timeout=10)
+            response_json = sent_file.json() if sent_file.headers.get('Content-Type') == 'application/json' else {}
+
+            if response_json.get("ok"):
+                print("    Image sent successfully.")
+            else:
+                print(f"    Image failed to send. Response: {response_json}")
+                self.send_message(f"Image failed to send. {path}")
         except requests.exceptions.RequestException as e:
             print("An error occurred when communicating with the Telegram bot: ", str(e))
         
-        if sent_file and sent_file.json()['ok']:
-            print("    Image sent successfully.")
-        else:
-            print("    Image failed to send.")
-            self.send_message(f"Image failed to send. {path}")
-
     def delete_from_queue(self, path, index):
         try:
             if os.path.exists(path):
