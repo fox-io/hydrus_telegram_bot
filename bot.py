@@ -103,42 +103,16 @@ class HydrusTelegramBot:
         except (FileNotFoundError, json.JSONDecodeError):
             print("Error: config.json missing or corrupted.")
 
-    def verify_queue_file(self):
-        # Create a queue file if not present.
-        try:
-            with open('queue.json', 'r'):
-                pass
-        except (FileNotFoundError, json.JSONDecodeError):
-            print("Warning: queue.json missing or corrupted.")
-            with open('queue.json', 'w+') as queue_file:
-                queue_file.write(json.dumps({
-                    "queue": []
-                }))
-            print("Created new queue file.")
-
     def load_queue(self):
         # Load queue from file.
         if not self.queue_loaded:
-            self.verify_queue_file()
-            try:
-                with open('queue.json') as queue_file:
-                    self.queue_data = json.load(queue_file)
-            except FileNotFoundError:
-                print("A file not found error occurred when opening queue.json.")
-            except json.JSONDecodeError:
-                print("An error occurred when decoding queue.json.")
-            else:
-                self.queue_loaded = True
+            self.queue_data = self.file_operation('queue.json', 'r', {"queue":[]})
+            self.queue_loaded = True
 
     def save_queue(self):
         # Save queue to file.
-        try:
-            with open('queue.json', 'w+') as queue_file:
-                json.dump(self.queue_data, queue_file)
-        except Exception as e:
-            print("An error occurred while saving queue.json: ", str(e))
-        else:
-            self.queue_loaded = False
+        self.file_operation('queue.json', 'w+', self.queue_data)
+        self.queue_loaded = False
 
     def update_queue(self):
         # Update queue from Hydrus, then save queue to file.
@@ -153,6 +127,26 @@ class HydrusTelegramBot:
                 str(action): [tag]
             }
         })
+
+    def file_operation(self, filename: str, mode: str, payload=None):
+        # File operation function
+        try:
+            with open(filename, mode) as file:
+                if 'r' in mode:
+                    return json.load(file)
+                elif 'w' in mode and payload is not None:
+                    json.dump(payload, file)
+        except (FileNotFoundError, json.JSONDecodeError):
+            if 'r' in mode:
+                print(f"Warning: {filename} missing or corrupted.")
+                if payload is not None:
+                    with open(filename, 'w+') as file:
+                        json.dump(payload, file)
+                        print(f"Created new {filename}.")
+                return payload
+        except Exception as e:
+            print(f"An error occurred while opening {filename}: {e}")
+        return None
 
     def check_hydrus_permissions(self):
         # Check that Hydrus is running and the current permissions are valid.
