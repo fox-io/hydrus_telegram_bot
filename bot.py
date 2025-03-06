@@ -72,7 +72,12 @@ class HydrusTelegramBot:
         
         for admin in self.admins:
             try:
-                response = requests.get(self.build_telegram_api_url('sendMessage', '?chat_id=' + str(admin) + '&text=' + message + '&parse_mode=Markdown'), timeout=10)
+                payload = {
+                    'chat_id': str(admin),
+                    'text': message,
+                    'parse_mode': 'Markdown'
+                }
+                response = requests.get(self.build_telegram_api_url('sendMessage', '?' + urllib.parse.urlencode(payload)), timeout=10)
                 response_json = response.json()
                 if not response_json.get("ok", False):  # Correct way to access "ok" key
                     print(f"Failed to send message to admin {admin}: {response_json}")
