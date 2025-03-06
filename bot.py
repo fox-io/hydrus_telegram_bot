@@ -8,6 +8,7 @@ import time
 import os
 import re
 import subprocess
+import textwrap
 from urllib.parse import urlparse
 import urllib.parse
 import hydrus_api
@@ -411,22 +412,19 @@ class HydrusTelegramBot:
         if sauce:
             message_markup = message_markup + '&reply_markup=' + json.dumps(sauce)
         # Caption Text
-        message_markup = message_markup + '&caption='
+        caption_parts = []
         #     Title
         if "title" in image and image["title"]:
-            message_markup = message_markup + 'Title(s):\n' + str(image['title'])
+            caption_parts.append('Title(s):\n' + str(image['title']))
         #     Creator
         if "creator" in image and image["creator"]:
-            if "title" in image and image["title"]:
-                message_markup = message_markup + '\n\n'
-            message_markup = message_markup + 'Uploader:\n' + str(image['creator'])
+            caption_parts.append('Uploader:\n' + str(image['creator']))
         #     Character
         if "character" in image and image["character"]:
-            if "creator" in image and image["creator"]:
-                message_markup = message_markup + '\n\n'
-            elif "title" in image and image["title"]:
-                message_markup = message_markup + '\n\n'
-            message_markup = message_markup + 'Character(s):\n' + str(image['character'])
+            caption_parts.append('Character(s):\n' + str(image['character']))
+        caption = "\n\n".join(caption_parts) if caption_parts else "No info."
+        caption = textwrap.shorten(caption, width=1024, placeholder="...")
+        message_markup += f"&caption={caption}"
 
         return message_markup
     
