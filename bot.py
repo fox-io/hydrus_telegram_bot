@@ -479,7 +479,7 @@ class HydrusTelegramBot:
         if not self.queue_loaded:
             self.load_queue()
 
-        if not self.queue_data["queue"] and len(self.queue_data["queue"]) == 0:
+        if not self.queue_data["queue"]:
             print("Queue is empty.")
             self.send_message("Queue is empty.")
             return
