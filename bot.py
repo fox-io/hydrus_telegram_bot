@@ -146,24 +146,11 @@ class HydrusTelegramBot:
         self.get_new_hydrus_files()
         self.save_queue()
 
-    def add_tag(self, file_id: list, tag: str):
-        # Add Hydrus tag to indicate image has been posted (enqueued).
+    def modify_tag(self, file_id: list, tag:str, action: hydrus_api.TagAction, service: str):
+        # Modify tags on a file in Hydrus.
         self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
-            self.hydrus_service_key["my_tags"]: {
-                str(hydrus_api.TagAction.ADD): [tag],
-            }
-        })
-
-    def remove_tag(self, file_id: list, tag: str):
-        # Remove Hydrus tag indicating image should be posted.
-        self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
-            self.hydrus_service_key["downloader_tags"]: {
-                str(hydrus_api.TagAction.DELETE): [tag]
-            }
-        })
-        self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
-            self.hydrus_service_key["my_tags"]: {
-                str(hydrus_api.TagAction.DELETE): [tag]
+            self.hydrus_service_key[str]: {
+                str(action): [tag]
             }
         })
 
@@ -328,8 +315,9 @@ class HydrusTelegramBot:
         for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
             for file_id in file_ids:
                 num_images += self.save_image_to_queue([file_id])
-                self.remove_tag([file_id], self.queue_tag)
-                self.add_tag([file_id], self.posted_tag)
+                self.modify_tag(file_id, self.queue_tag, hydrus_api.TagAction.DELETE, "downloader_tags")
+                self.modify_tag(file_id, self.queue_tag, hydrus_api.TagAction.DELETE, "my_tags")
+                self.modify_tag(file_id, self.posted_tag, hydrus_api.TagAction.ADD, "my_tags")
         if num_images > 0:
             self.queue_loaded = False # Force reload of queue data
             print(f"    Added {num_images} image(s) to the queue.")
