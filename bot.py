@@ -120,11 +120,26 @@ class HydrusTelegramBot:
         self.get_new_hydrus_files()
         self.save_queue()
 
-    def modify_tag(self, file_id: list, tag:str, action: hydrus_api.TagAction, service: str):
-        # Modify tags on a file in Hydrus.
+    def modify_tag(self, file_id: t.Union[int, list], tag: str, action: hydrus_api.TagAction, service: str):
+        # Ensure file_id is a list
+        if isinstance(file_id, int):
+            file_id = [file_id]  # Convert single int to list
+        elif isinstance(file_id, str):
+            try:
+                file_id = [int(file_id)]  # Convert string to list of int
+            except ValueError:
+                print(f"Error: Invalid file_id format: {file_id}")
+                return
+        
+        # Validate service key
+        if service not in self.hydrus_service_key:
+            print(f"Error: Invalid service key '{service}'")
+            return
+
+        # Add the tag to the file
         self.hydrus_client.add_tags(file_ids=file_id, service_keys_to_actions_to_tags={
-            self.hydrus_service_key[str]: {
-                str(action): [tag]
+            self.hydrus_service_key[service]: {
+                int(action): [tag]
             }
         })
 
