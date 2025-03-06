@@ -434,6 +434,10 @@ class HydrusTelegramBot:
 
         try:
             sent_file = requests.get(api_call, files=image, timeout=10)
+            if sent_file.status_code != 200:
+                print(f"Error: Telegram API returned {sent_file.status_code} - {sent_file.text}")
+                self.send_message(f"Image failed to send: {path}")
+                return
             response_json = sent_file.json() if sent_file.headers.get('Content-Type') == 'application/json' else {}
 
             if response_json.get("ok"):
