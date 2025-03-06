@@ -493,9 +493,9 @@ class HydrusTelegramBot:
             # Check if variable path ends in webm
             if path.endswith(".webm"):
                 # Use ffmpeg to convert webm to mp4
-                subprocess.run(["ffmpeg", "-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"], check=True)
+                subprocess.run(["ffmpeg", "-y", "-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"], check=True)
                 # Use ffmpeg to extract thumbnail from mp4
-                subprocess.run(["ffmpeg", "-i", path + ".mp4", "-vframes", "1", path + ".jpg"], check=True)
+                subprocess.run(["ffmpeg", "-y", "-i", path + ".mp4", "-vframes", "1", path + ".jpg"], check=True)
                 thumb_file = open(path + ".jpg", 'rb')
                 media_file = open(path + ".mp4", 'rb')
                 telegram_file = {'video': media_file, 'thumbnail': thumb_file}
