@@ -8,7 +8,6 @@ import time
 import os
 import re
 import subprocess
-import textwrap
 from urllib.parse import urlparse
 import urllib.parse
 import hydrus_api
@@ -423,8 +422,9 @@ class HydrusTelegramBot:
         if "character" in image and image["character"]:
             caption_parts.append('Character(s):\n' + str(image['character']))
         caption = "\n\n".join(caption_parts) if caption_parts else "No info."
-        caption = textwrap.shorten(caption, width=1024, placeholder="...")
-        message_markup += f"&caption={urllib.parse.quote_plus(caption)}"
+        if len(caption) > 1024:
+            caption = caption[:1021] + "..."
+        message_markup += f"&caption={caption}"
 
         return message_markup
     
