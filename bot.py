@@ -329,6 +329,7 @@ class HydrusTelegramBot:
                 self.remove_tag([file_id], self.queue_tag)
                 self.add_tag([file_id], self.posted_tag)
         if num_images > 0:
+            self.queue_loaded = False # Force reload of queue data
             print(f"    Added {num_images} image(s) to the queue.")
         else:
             print("    No new images found.")
