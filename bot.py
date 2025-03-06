@@ -409,20 +409,26 @@ class HydrusTelegramBot:
 
         return message_markup
     
+    def api_request(self, api_call, payload, image, path):
+        # Send messages or images to Telegram bot.
+        if api_call == 'sendMessage':
+            try:
+                url = self.build_telegram_api_url(api_call, "?" + urllib.parse.urlencode(payload))
+                response = requests.get(url, timeout=10)
+                response_json = response.json()
+                if not response_json.get("ok", False):
+                    print(f"Failed to send message: {response_json}")
+            except requests.exceptions.RequestException as e:
+                print(f"An error occurred when communicating with Telegram: {e}")
+    
     def send_message(self, message):
         # Sends a message to all admin users.
         if not message:
             return
         
         for admin in self.admins:
-            try:
-                payload = {'chat_id': str(admin), 'text': message, 'parse_mode': 'Markdown'}
-                response = requests.get(self.build_telegram_api_url('sendMessage', '?' + urllib.parse.urlencode(payload)), timeout=10)
-                response_json = response.json()
-                if not response_json.get("ok", False):  # Correct way to access "ok" key
-                    print(f"Failed to send message to admin {admin}: {response_json}")
-            except requests.exceptions.RequestException as e:
-                print(f"An error occurred when communicating with Telegram: {e}")
+            payload = {'chat_id': str(admin), 'text': message, 'parse_mode': 'Markdown'}
+            self.api_request('sendMessage', payload, None, None)
     
     def send_image(self, api_call, image, path):
         # Attempt to send the image to our Telegram bot.
