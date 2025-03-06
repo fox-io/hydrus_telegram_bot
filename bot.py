@@ -424,7 +424,7 @@ class HydrusTelegramBot:
             caption_parts.append('Character(s):\n' + str(image['character']))
         caption = "\n\n".join(caption_parts) if caption_parts else "No info."
         caption = textwrap.shorten(caption, width=1024, placeholder="...")
-        message_markup += f"&caption={caption}"
+        message_markup += f"&caption={urllib.parse.quote_plus(caption)}"
 
         return message_markup
     
