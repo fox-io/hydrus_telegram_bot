@@ -475,50 +475,52 @@ class HydrusTelegramBot:
     def process_queue(self):
         # Post next image to Telegram and remove it from the queue.
         print("Processing next image in queue.")
-        self.load_queue()
-        if len(self.queue_data['queue']) > 0:
-            # Select a random image from the queue
-            random_index = random.randint(0, len(self.queue_data['queue']) - 1)
-            current_queued_image = self.queue_data['queue'][random_index]
-            path = "queue/" + current_queued_image['path']
+        if not self.queue_loaded():
+            self.load_queue()
 
-            channel = str(self.channel)
-
-            # Check if variable path ends in webm
-            if path.endswith(".webm"):
-                # Use ffmpeg to convert webm to mp4
-                subprocess.run(["ffmpeg", "-y", "-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"], check=True)
-                # Use ffmpeg to extract thumbnail from mp4
-                subprocess.run(["ffmpeg", "-y", "-i", path + ".mp4", "-vframes", "1", path + ".jpg"], check=True)
-                thumb_file = open(path + ".jpg", 'rb')
-                media_file = open(path + ".mp4", 'rb')
-                telegram_file = {'video': media_file, 'thumbnail': thumb_file}
-                api_method = 'sendVideo'
-            else:
-                # Ensure image filesize and dimensions are compatible with Telegram API
-                self.reduce_image_size(path)
-                media_file = open(path, 'rb')
-                telegram_file = {'photo': media_file}
-                api_method = 'sendPhoto'
-
-            # Build Telegram bot API URL.
-            message = self.get_message_markup(current_queued_image)
-            request = self.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + '&' + message + '&parse_mode=html', False)
-            
-            # Post the image to Telegram.
-            self.send_image(request, telegram_file, path)
-
-            media_file.close()
-            if api_method == 'sendVideo':
-                thumb_file.close()
-                os.remove(path + ".jpg")
-
-            # Delete the image from disk and queue.
-            self.delete_from_queue(path, random_index)
-        else:
-            # If queue is empty, alert admin and terminal.
+        if not self.queue_data["queue"] and len(self.queue_data["queue"]) == 0:
             print("Queue is empty.")
             self.send_message("Queue is empty.")
+            return
+
+        # Select a random image from the queue
+        random_index = random.randint(0, len(self.queue_data['queue']) - 1)
+        current_queued_image = self.queue_data['queue'][random_index]
+        path = "queue/" + current_queued_image['path']
+
+        channel = str(self.channel)
+
+        # Check if variable path ends in webm
+        if path.endswith(".webm"):
+            # Use ffmpeg to convert webm to mp4
+            subprocess.run(["ffmpeg", "-y", "-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"], check=True)
+            # Use ffmpeg to extract thumbnail from mp4
+            subprocess.run(["ffmpeg", "-y", "-i", path + ".mp4", "-vframes", "1", path + ".jpg"], check=True)
+            thumb_file = open(path + ".jpg", 'rb')
+            media_file = open(path + ".mp4", 'rb')
+            telegram_file = {'video': media_file, 'thumbnail': thumb_file}
+            api_method = 'sendVideo'
+        else:
+            # Ensure image filesize and dimensions are compatible with Telegram API
+            self.reduce_image_size(path)
+            media_file = open(path, 'rb')
+            telegram_file = {'photo': media_file}
+            api_method = 'sendPhoto'
+
+        # Build Telegram bot API URL.
+        message = self.get_message_markup(current_queued_image)
+        request = self.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + '&' + message + '&parse_mode=html', False)
+        
+        # Post the image to Telegram.
+        self.send_image(request, telegram_file, path)
+
+        media_file.close()
+        if api_method == 'sendVideo':
+            thumb_file.close()
+            os.remove(path + ".jpg")
+
+        # Delete the image from disk and queue.
+        self.delete_from_queue(path, random_index)
 
     def on_scheduler(self):
         # Event handler.
