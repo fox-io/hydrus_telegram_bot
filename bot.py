@@ -14,7 +14,7 @@ import hydrus_api
 import hydrus_api.utils
 import typing as t
 from wand.image import Image
-
+from logs import Logs
 
 class HydrusTelegramBot:
     file_list = []
@@ -55,7 +55,7 @@ class HydrusTelegramBot:
     def schedule_update(self):
         # Schedules an event for the next update time.
         next_time = self.get_next_update_time() - (3600 * self.timezone)
-        print(f"Next update scheduled for {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(next_time))}.")
+        logger.info(f"Next update scheduled for {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(next_time))}.")
         self.scheduler.enterabs(next_time, 1, self.on_scheduler, ())
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
@@ -82,7 +82,7 @@ class HydrusTelegramBot:
                 self.delay = config_data['delay']
                 self.timezone = config_data['timezone']
         except (FileNotFoundError, json.JSONDecodeError):
-            print("Error: config.json missing or corrupted.")
+            logger.error("Required file 'config.json' is missing or corrupted.")
 
     def load_queue(self):
         # Load queue from file.
@@ -109,12 +109,12 @@ class HydrusTelegramBot:
             try:
                 file_id = [int(file_id)]  # Convert string to list of int
             except ValueError:
-                print(f"Error: Invalid file_id format: {file_id}")
+                logger.error(f"Invalid file_id format: {file_id}")
                 return
         
         # Validate service key
         if service not in self.hydrus_service_key:
-            print(f"Error: Invalid service key '{service}'")
+            logger.error(f"Invalid service key '{service}'")
             return
 
         # Add the tag to the file
@@ -134,24 +134,24 @@ class HydrusTelegramBot:
                     json.dump(payload, file)
         except (FileNotFoundError, json.JSONDecodeError):
             if 'r' in mode:
-                print(f"Warning: {filename} missing or corrupted.")
+                logger.warning(f"{filename} missing or corrupted.")
                 if payload is not None:
                     with open(filename, 'w+') as file:
                         json.dump(payload, file)
-                        print(f"Created new {filename}.")
+                        logger.info(f"Created new {filename}.")
                 return payload
         except Exception as e:
-            print(f"An error occurred while opening {filename}: {e}")
+            logger.error(f"An error occurred while opening {filename}: {e}")
         return None
 
     def check_hydrus_permissions(self):
         # Check that Hydrus is running and the current permissions are valid.
         try:
             if not hydrus_api.utils.verify_permissions(self.hydrus_client, self.permissions):
-                print("    The client does not have the required permissions.")
+                logger.error("    The client does not have the required permissions.")
                 return False
         except requests.exceptions.ConnectionError:
-            print("    The Hydrus client is not running.")
+            logger.warning("    The Hydrus client is not running.")
             return False
         else:
             return True
@@ -179,7 +179,7 @@ class HydrusTelegramBot:
         try:
             return self.hydrus_client.get_file_metadata(file_ids=id)
         except Exception as e:
-            print("An error occurred while getting metadata: ", str(e))
+            logger.error("An error occurred while getting metadata: ", str(e))
             return None
         
     def replace_html_entities(self, tag: str):
@@ -196,12 +196,12 @@ class HydrusTelegramBot:
             # Load metadata from Hydrus.
             metadata = self.get_metadata(file_id)
             if not metadata or 'metadata' not in metadata or not metadata["metadata"]:
-                print(f"Warning: No metadata found for file_id {file_id}.")
+                logger.warning(f"No metadata found for file_id {file_id}.")
                 return 0
             
             file_info = metadata['metadata'][0]
             if 'hash' not in file_info or 'ext' not in file_info or 'file_id' not in file_info or 'tags' not in file_info:
-                print(f"Warning: Missing file info for file_id {file_id}.")
+                logger.warning(f"Missing file info for file_id {file_id}.")
                 return 0
 
             # Save image from Hydrus to queue folder. Creates filename based on hash.
@@ -210,17 +210,17 @@ class HydrusTelegramBot:
             try:
                 file_content = self.hydrus_client.get_file(file_id=file_info['file_id']).content
                 if not file_content:
-                    print(f"Warning: No file content found for file_id {file_info['file_id']}.")
+                    logger.error(f"No file content found for file_id {file_info['file_id']}.")
                     return 0
                 path.write_bytes(file_content)
             except Exception as e:
-                print(f"An error occurred while saving the image to the queue: {filename}: {e}")
+                logger.error(f"An error occurred while saving the image to the queue: {filename}: {e}")
                 return 0
 
             # Get the tags for the image
             tags_dict = file_info.get("tags", {})
             if self.hydrus_service_key["downloader_tags"] not in tags_dict:
-                print(f"Warning: No downloader tags found for file_id {file_id}.")
+                logger.warning(f"No downloader tags found for file_id {file_id}.")
                 return 0
             tags = tags_dict[self.hydrus_service_key["downloader_tags"]].get('display_tags', {}).get('0', [])
 
@@ -288,19 +288,19 @@ class HydrusTelegramBot:
                 return 0
             
         except Exception as e:
-            print("An error occurred while saving the image to the queue: ", str(e))
+            logger.error("An error occurred while saving the image to the queue: ", str(e))
             return 0
 
     def get_new_hydrus_files(self):
         # Check Hydrus for new images to enqueue.
-        print("Checking Hydrus for new files.")
+        logger.info("Checking Hydrus for new files.")
         if not self.check_hydrus_permissions():
             return
         num_images = 0
         response = self.hydrus_client.search_files([self.queue_tag])
         all_tagged_file_ids = response.get("file_ids", [])
         if not all_tagged_file_ids:
-            print("    No new images found.")
+            logger.info("    No new images found.")
             return
         for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
             for file_id in file_ids:
@@ -310,9 +310,9 @@ class HydrusTelegramBot:
                 self.modify_tag(file_id, self.posted_tag, hydrus_api.TagAction.ADD, "my_tags")
         if num_images > 0:
             self.queue_loaded = False # Force reload of queue data
-            print(f"    Added {num_images} image(s) to the queue.")
+            logger.info(f"    Added {num_images} image(s) to the queue.")
         else:
-            print("    No new images found.")
+            logger.info("    No new images found.")
 
     def build_caption_buttons(self, caption: str):
         # Assembles buttons to display under the Telegram post.
@@ -339,7 +339,7 @@ class HydrusTelegramBot:
                             if "The submission you are trying to find is not in our database." in response.text:
                                 skip_link = True
                         except requests.exceptions.RequestException as e:
-                            print("An error occurred when checking the Furaffinity link: ", str(e))
+                            logger.error("An error occurred when checking the Furaffinity link: ", str(e))
                     elif 'e621' in link.netloc:
                         website = 'e621'
                     elif 'reddit' in link.netloc:
@@ -369,7 +369,7 @@ class HydrusTelegramBot:
             img = Image(filename=path)
 
             if img.format.lower() not in ["jpeg", "jpg", "png", "gif"]:
-                print(f"Skipping resize: Unsupported format {img.format}")
+                logger.warning(f"Skipping resize: Unsupported format {img.format}")
                 return
             
             if img.width > 10000 or img.height > 10000:
@@ -381,7 +381,7 @@ class HydrusTelegramBot:
                 img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
                 img.save(filename=path)
         except Exception as e:
-            print("An error occurred while opening the image: ", str(e))
+            logger.error("Could not open the image: ", str(e))
 
     def get_message_markup(self, image):
         # Build the message markup for the Telegram post.
@@ -417,9 +417,9 @@ class HydrusTelegramBot:
                 response = requests.get(url, timeout=10)
                 response_json = response.json()
                 if not response_json.get("ok", False):
-                    print(f"Failed to send message: {response_json}")
+                    logger.error(f"Failed to send message: {response_json}")
             except requests.exceptions.RequestException as e:
-                print(f"An error occurred when communicating with Telegram: {e}")
+                logger.error(f"Could not communicate with Telegram: {e}")
     
     def send_message(self, message):
         # Sends a message to all admin users.
@@ -437,18 +437,18 @@ class HydrusTelegramBot:
         try:
             sent_file = requests.get(api_call, files=image, timeout=10)
             if sent_file.status_code != 200:
-                print(f"Error: Telegram API returned {sent_file.status_code} - {sent_file.text}")
+                logger.error(f"Telegram API returned {sent_file.status_code} - {sent_file.text}")
                 self.send_message(f"Image failed to send: {path}")
                 return
             response_json = sent_file.json() if sent_file.headers.get('Content-Type') == 'application/json' else {}
 
             if response_json.get("ok"):
-                print("    Image sent successfully.")
+                logger.info("    Image sent successfully.")
             else:
-                print(f"    Image failed to send. Response: {response_json}")
+                logger.error(f"    Image failed to send. Response: {response_json}")
                 self.send_message(f"Image failed to send. {path}")
         except requests.exceptions.RequestException as e:
-            print("An error occurred when communicating with the Telegram bot: ", str(e))
+            logger.error("Could not communicate with the Telegram bot: ", str(e))
         
     def delete_from_queue(self, path, index):
         try:
@@ -456,27 +456,27 @@ class HydrusTelegramBot:
             if path.endswith(".webm"):
                 os.remove(path + ".mp4")
         except OSError as ose:
-            print(f"Error deleting file {path + '.mp4'}: {ose}")
+            logger.error(f"Could not delete file {path + '.mp4'}: {ose}")
         except Exception as e:
-            print(f"Error deleting file {path}: {e}")
+            logger.error(f"Could not delete file {path}: {e}")
 
         try:
             self.queue_data['queue'].pop(index)
         except IndexError as e:
-            print(f"Error removing image from queue: {e}")
+            logger.error(f"Could not remove image from queue: {e}")
         self.save_queue()
 
         # Send queue size update to terminal.
-        print("Queued images remaining: " + str(len(self.queue_data['queue'])))
+        logger.info("Queued images remaining: " + str(len(self.queue_data['queue'])))
 
     def process_queue(self):
         # Post next image to Telegram and remove it from the queue.
-        print("Processing next image in queue.")
+        logger.info("Processing next image in queue.")
         if not self.queue_loaded:
             self.load_queue()
 
         if not self.queue_data["queue"]:
-            print("Queue is empty.")
+            logger.info("Queue is empty.")
             self.send_message("Queue is empty.")
             return
 
@@ -532,16 +532,17 @@ class HydrusTelegramBot:
             self.hydrus_client = hydrus_api.Client(self.hydrus_api_key)
             self.on_scheduler()
         except Exception as e:
-            print("An error occurred during initilization: ", str(e))
+            logger.error("Bot could not be initialized: ", str(e))
 
 
 if __name__ == '__main__':
     # Main program loop.
+    logger = Logs.setup_logger('HydrusTelegramBot', 'bot.log')
     app = HydrusTelegramBot()
     while True:
         try:
             app.scheduler.run(blocking=False)
             time.sleep(5)
         except KeyboardInterrupt:
-            print("Exiting...")
+            logger.info("Exiting...")
             break
