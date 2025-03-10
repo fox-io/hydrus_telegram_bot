@@ -14,7 +14,7 @@ class Logs:
         logger.setLevel(logging.DEBUG)
 
         # Set the message formatting
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         formatter.datefmt = '%Y-%m-%d %H:%M:%S'
 
         # Create the handlers
