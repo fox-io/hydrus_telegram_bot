@@ -1,4 +1,5 @@
 import logging
+from logging.handlers import RotatingFileHandler
 
 class Logs:
     @staticmethod
@@ -9,6 +10,9 @@ class Logs:
         # Prevent duplicate loggers from beging created
         if logger.hasHandlers():
             return logger
+        
+        # Set up rotating log files
+        file_handler = RotatingFileHandler(out_file, maxBytes=5*1024*1024, backupCount=3)
 
         # Set the logging level
         logger.setLevel(logging.DEBUG)
@@ -18,7 +22,6 @@ class Logs:
         formatter.datefmt = '%Y-%m-%d %H:%M:%S'
 
         # Create the handlers
-        file_handler = logging.FileHandler(out_file)
         console_handler = logging.StreamHandler()
 
         # Set the handler levels
