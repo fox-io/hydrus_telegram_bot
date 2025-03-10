@@ -15,3 +15,5 @@
 /venv/
 start.bat
 .DS_Store
+*.log
+/__pycache__/
