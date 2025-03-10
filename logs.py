@@ -9,9 +9,6 @@ class Logs:
         # Prevent duplicate loggers from beging created
         if logger.hasHandlers():
             return logger
-        
-        # Create the logger
-        logger = logging.getLogger(__name__)
 
         # Set the logging level
         logger.setLevel(logging.DEBUG)
