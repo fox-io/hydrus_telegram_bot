@@ -2,7 +2,7 @@ import logging
 
 class Logs:
     @staticmethod
-    def setup_logger(name, out_file):
+    def setup_logger(name='logs', out_file='log.log'):
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
 
