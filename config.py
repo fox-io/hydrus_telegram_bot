@@ -13,7 +13,7 @@ class Config:
     timezone = -5
     
     def __init__(self, config_file):
-        self.logger = Logs.setup_logger('Config')
+        self.logger = Logs.setup_logger('CON')
         if not config_file:
             self.logger.error('Missing config file argument.')
             return

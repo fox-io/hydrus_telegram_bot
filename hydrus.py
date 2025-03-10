@@ -7,7 +7,6 @@ import hydrus_api.utils
 import typing as t
 
 class Hydrus:
-    subreddit_regex = "/(r/[a-z0-9][_a-z0-9]{2,20})/"
     queue_data = []
     queue_loaded = False
     hydrus_service_key = {
@@ -28,7 +27,6 @@ class Hydrus:
         self.hydrus_client = hydrus_api.Client(self.config.hydrus_api_key)
         self.queue = queue
         self.queue_file = self.queue.queue_file
-        self.queue_data = self.queue.load_queue()
         self.logger.info('Hydrus Module initialized.')
 
     def modify_tag(self, file_id: t.Union[int, list], tag: str, action: hydrus_api.TagAction, service: str):
@@ -73,6 +71,9 @@ class Hydrus:
             self.logger.error("An error occurred while getting metadata: ", str(e))
             return None
         
+    def get_file_content(self, id):
+        return self.hydrus_client.get_file(file_id=id).content
+        
     def get_new_hydrus_files(self):
         # Check Hydrus for new images to enqueue.
         self.logger.info("Checking Hydrus for new files.")
@@ -86,12 +87,11 @@ class Hydrus:
             return
         for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
             for file_id in file_ids:
-                num_images += self.save_image_to_queue([file_id])
+                num_images += self.queue.save_image_to_queue([file_id])
                 self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "downloader_tags")
                 self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "my_tags")
                 self.modify_tag(file_id, self.config.posted_tag, hydrus_api.TagAction.ADD, "my_tags")
         if num_images > 0:
-            self.queue_loaded = False # Force reload of queue data
             self.logger.info(f"Added {num_images} image(s) to the queue.")
         else:
             self.logger.info("No new images found.")

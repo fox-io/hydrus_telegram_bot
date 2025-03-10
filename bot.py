@@ -9,18 +9,17 @@ from logs import Logs
 class HydrusTelegramBot:
 
     def on_scheduler(self):
-        # Event handler.
         self.queue.load_queue()
         self.hydrus.get_new_hydrus_files()
-        self.queue.save_queue()
         self.queue.process_queue()
         self.scheduler.schedule_update(self.on_scheduler)
 
     def __init__(self):
         self.logger = Logs.setup_logger('BOT')
         self.config = Config('config.json')
-        self.queue = Queues('queue.json')
+        self.queue = Queues(self.config, 'queue.json')
         self.hydrus = Hydrus(self.config, self.queue)
+        self.queue.set_hydrus(self.hydrus)
         self.telegram = Telegram(self.config)
         self.queue.set_telegram(self.telegram)
         self.scheduler = Scheduler()
