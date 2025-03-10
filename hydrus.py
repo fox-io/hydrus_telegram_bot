@@ -79,7 +79,7 @@ class Hydrus:
         if not self.check_hydrus_permissions():
             return
         num_images = 0
-        response = self.hydrus_client.search_files([self.queue_tag])
+        response = self.hydrus_client.search_files([self.config.queue_tag])
         all_tagged_file_ids = response.get("file_ids", [])
         if not all_tagged_file_ids:
             self.logger.info("No new images found.")
@@ -87,9 +87,9 @@ class Hydrus:
         for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
             for file_id in file_ids:
                 num_images += self.save_image_to_queue([file_id])
-                self.modify_tag(file_id, self.queue_tag, hydrus_api.TagAction.DELETE, "downloader_tags")
-                self.modify_tag(file_id, self.queue_tag, hydrus_api.TagAction.DELETE, "my_tags")
-                self.modify_tag(file_id, self.posted_tag, hydrus_api.TagAction.ADD, "my_tags")
+                self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "downloader_tags")
+                self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "my_tags")
+                self.modify_tag(file_id, self.config.posted_tag, hydrus_api.TagAction.ADD, "my_tags")
         if num_images > 0:
             self.queue_loaded = False # Force reload of queue data
             self.logger.info(f"Added {num_images} image(s) to the queue.")
