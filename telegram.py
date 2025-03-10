@@ -10,6 +10,7 @@ from files import Files
 import json
 
 class Telegram:
+    subreddit_regex = "/(r/[a-z0-9][_a-z0-9]{2,20})/"
     def __init__(self, config):
         self.logger = Logs.setup_logger('TEL')
         self.config = config

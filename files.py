@@ -7,16 +7,17 @@ class Files:
         self.logger.info('File Module initialized.')
 
     def operation(self, filename: str, mode: str, payload=None):
-        # File operation function
         try:
             with open(filename, mode) as file:
                 if 'r' in mode:
+                    self.logger.info(f"Reading json data from {filename}.")
                     return json.load(file)
                 elif 'w' in mode and payload is not None:
+                    self.logger.info(f"Writing json data to {filename}.")
                     json.dump(payload, file)
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, json.JSONDecodeError) as e:
             if 'r' in mode:
-                self.logger.warning(f"{filename} missing or corrupted.")
+                self.logger.warning(f"{filename} missing or corrupted. {e}")
                 if payload is not None:
                     with open(filename, 'w+') as file:
                         json.dump(payload, file)
