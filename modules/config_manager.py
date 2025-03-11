@@ -19,7 +19,7 @@ class ConfigManager:
             return
         self.config_file = config_file
         self.config_data = self.load_config()
-        self.logger.info('Config Module initialized.')
+        self.logger.debug('Config Module initialized.')
     
     def load_config(self):
         # Load the config file.
@@ -37,3 +37,5 @@ class ConfigManager:
                 self.timezone = config_data['timezone']
         except (FileNotFoundError, json.JSONDecodeError, AttributeError):
             self.logger.error("Required file 'config.json' is missing or corrupted.")
+            # Cannot continue.
+            exit(1)

@@ -4,16 +4,16 @@ import json
 class FileManager:
     def __init__(self):
         self.logger = LogManager.setup_logger('FIL')
-        self.logger.info('File Module initialized.')
+        self.logger.debug('File Module initialized.')
 
     def operation(self, filename: str, mode: str, payload=None):
         try:
             with open(filename, mode) as file:
                 if 'r' in mode:
-                    self.logger.info(f"Reading json data from {filename}.")
+                    self.logger.debug(f"Reading json data from {filename}.")
                     return json.load(file)
                 elif 'w' in mode and payload is not None:
-                    self.logger.info(f"Writing json data to {filename}.")
+                    self.logger.debug(f"Writing json data to {filename}.")
                     json.dump(payload, file)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             if 'r' in mode:

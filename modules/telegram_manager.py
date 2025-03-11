@@ -19,7 +19,7 @@ class TelegramManager:
             self.logger.error('No Telegram token was provided.')
             return
         self.token = self.config.access_token
-        self.logger.info('Telegram Module initialized.')
+        self.logger.debug('Telegram Module initialized.')
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
         # Constructs a Telegram API url for bot communication.
@@ -172,15 +172,15 @@ class TelegramManager:
         try:
             sent_file = requests.get(api_call, files=image, timeout=10)
             if sent_file.status_code != 200:
-                self.logger.error(f"Telegram API returned {sent_file.status_code} - {sent_file.text}")
+                self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
                 self.send_message(f"Image failed to send: {path}")
                 return
             response_json = sent_file.json() if sent_file.headers.get('Content-Type') == 'application/json' else {}
 
             if response_json.get("ok"):
-                self.logger.info("Image sent successfully.")
+                self.logger.debug("Image sent successfully.")
             else:
-                self.logger.error(f"Image failed to send. Response: {response_json}")
+                self.logger.error(f"{path} failed to send. Response: {response_json}")
                 self.send_message(f"Image failed to send. {path}")
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Could not communicate with the Telegram bot: {e}")

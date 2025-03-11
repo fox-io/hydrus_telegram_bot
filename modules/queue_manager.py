@@ -16,7 +16,7 @@ class QueueManager:
         self.files = FileManager()
         self.queue_file = 'queue/' + queue_file
         self.queue_loaded = False
-        self.logger.info('Queues Module initialized.')
+        self.logger.debug('Queue Module initialized.')
 
     def set_telegram(self, telegram):
         self.telegram = telegram
@@ -26,19 +26,19 @@ class QueueManager:
 
     def load_queue(self):
         # Load queue from file.
-        self.logger.info(f"Queue loaded?: {self.queue_loaded and "yes" or "no"}")
+        self.logger.debug(f"Queue loaded?: {self.queue_loaded and "yes" or "no"}")
         if self.queue_loaded:
-            self.logger.info("Queue already loaded.")
+            self.logger.debug("Queue already loaded.")
             return
 
         self.queue_data = self.files.operation(self.queue_file, 'r', {"queue":[]})
-        self.logger.info("Loaded queue.json")
+        self.logger.debug("Loaded queue.json")
         self.queue_loaded = True
 
     def save_queue(self):
         # Save queue to file.
         self.files.operation(self.queue_file, 'w+', self.queue_data)
-        self.logger.info("Saved queue.json")
+        self.logger.debug("Saved queue.json")
         self.queue_loaded = False
 
     def image_is_queued(self, filename: str):
@@ -57,12 +57,12 @@ class QueueManager:
             # Load metadata from Hydrus.
             metadata = self.hydrus.get_metadata(file_id)
             if not metadata or 'metadata' not in metadata or not metadata["metadata"]:
-                self.logger.warning(f"No metadata found for file_id {file_id}.")
+                self.logger.error(f"No metadata found for file_id {file_id}.")
                 return 0
             
             file_info = metadata['metadata'][0]
             if 'hash' not in file_info or 'ext' not in file_info or 'file_id' not in file_info or 'tags' not in file_info:
-                self.logger.warning(f"Missing file info for file_id {file_id}.")
+                self.logger.error(f"Missing file info for file_id {file_id}.")
                 return 0
 
             # Save image from Hydrus to queue folder. Creates filename based on hash.
@@ -81,7 +81,7 @@ class QueueManager:
             # Get the tags for the image
             tags_dict = file_info.get("tags", {})
             if self.hydrus.hydrus_service_key["downloader_tags"] not in tags_dict:
-                self.logger.warning(f"No downloader tags found for file_id {file_id}.")
+                self.logger.error(f"No downloader tags found for file_id {file_id}.")
                 return 0
             tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]].get('display_tags', {}).get('0', [])
 
@@ -176,7 +176,7 @@ class QueueManager:
 
     def process_queue(self):
         # Post next image to Telegram and remove it from the queue.
-        self.logger.info("Processing next image in queue.")
+        self.logger.debug("Processing next image in queue.")
         self.load_queue()
 
         try:
@@ -185,7 +185,7 @@ class QueueManager:
                 return
             
             if not self.queue_data["queue"]:
-                self.logger.info("Queue is empty.")
+                self.logger.warning("Queue is empty.")
                 self.telegram.send_message("Queue is empty.")
                 return
         except Exception as e:

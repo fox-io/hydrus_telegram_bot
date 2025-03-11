@@ -8,7 +8,7 @@ class ScheduleManager:
         self.timezone = timezone
         self.delay = delay
         self.scheduler = sched.scheduler(time.time, time.sleep)
-        self.logger.info('Scheduler Module initialized.')
+        self.logger.debug('Scheduler Module initialized.')
 
     def get_next_update_time(self):
         # Calculate the next update time.

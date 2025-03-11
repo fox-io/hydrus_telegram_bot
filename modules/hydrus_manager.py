@@ -27,7 +27,7 @@ class HydrusManager:
         self.hydrus_client = hydrus_api.Client(self.config.hydrus_api_key)
         self.queue = queue
         self.queue_file = self.queue.queue_file
-        self.logger.info('Hydrus Module initialized.')
+        self.logger.debug('Hydrus Module initialized.')
 
     def modify_tag(self, file_id: t.Union[int, list], tag: str, action: hydrus_api.TagAction, service: str):
         # Ensure file_id is a list
@@ -76,7 +76,7 @@ class HydrusManager:
         
     def get_new_hydrus_files(self):
         # Check Hydrus for new images to enqueue.
-        self.logger.info("Checking Hydrus for new files.")
+        self.logger.debug("Checking Hydrus for new files.")
         if not self.check_hydrus_permissions():
             return
         num_images = 0

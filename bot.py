@@ -29,7 +29,7 @@ class HydrusTelegramBot:
         self.queue.set_hydrus(self.hydrus)
         self.queue.set_telegram(self.telegram)
 
-        self.logger.info('HydrusTelegramBot initialized.')
+        self.logger.debug('HydrusTelegramBot initialized.')
 
 
 if __name__ == '__main__':
