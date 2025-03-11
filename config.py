@@ -9,8 +9,8 @@ class Config:
     queue_tag = ""
     posted_tag = ""
     admins = []
-    delay = 60
-    timezone = -5
+    delay = None
+    timezone = None
     
     def __init__(self, config_file):
         self.logger = Logs.setup_logger('CON')
@@ -35,5 +35,5 @@ class Config:
                 self.admins = config_data['admins']
                 self.delay = config_data['delay']
                 self.timezone = config_data['timezone']
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, json.JSONDecodeError, AttributeError):
             self.logger.error("Required file 'config.json' is missing or corrupted.")
