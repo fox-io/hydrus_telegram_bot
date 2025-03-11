@@ -1,10 +1,10 @@
 import sched
 import time
-from logs import Logs
+from modules.log_manager import LogManager
 
-class Scheduler:
+class ScheduleManager:
     def __init__(self, timezone=-5, delay=60):
-        self.logger = Logs.setup_logger('SCH')
+        self.logger = LogManager.setup_logger('SCH')
         self.timezone = timezone
         self.delay = delay
         self.scheduler = sched.scheduler(time.time, time.sleep)

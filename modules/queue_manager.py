@@ -5,15 +5,15 @@ import subprocess
 import typing as t
 
 import urllib
-from logs import Logs
-from files import Files
+from modules.log_manager import LogManager
+from modules.file_manager import FileManager
 import json
 
-class Queues:
+class QueueManager:
     def __init__(self, config, queue_file):
-        self.logger = Logs.setup_logger('QUE')
+        self.logger = LogManager.setup_logger('QUE')
         self.config = config
-        self.files = Files()
+        self.files = FileManager()
         self.queue_file = queue_file
         self.queue_loaded = False
         self.logger.info('Queues Module initialized.')

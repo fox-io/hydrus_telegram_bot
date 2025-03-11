@@ -1,12 +1,12 @@
 import requests
-from logs import Logs
-from files import Files
+from modules.log_manager import LogManager
+from modules.file_manager import FileManager
 import json
 import hydrus_api
 import hydrus_api.utils
 import typing as t
 
-class Hydrus:
+class HydrusManager:
     queue_data = []
     queue_loaded = False
     hydrus_service_key = {
@@ -22,7 +22,7 @@ class Hydrus:
     )
 
     def __init__(self, config, queue):
-        self.logger = Logs.setup_logger('HYD')
+        self.logger = LogManager.setup_logger('HYD')
         self.config = config
         self.hydrus_client = hydrus_api.Client(self.config.hydrus_api_key)
         self.queue = queue

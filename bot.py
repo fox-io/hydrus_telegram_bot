@@ -1,9 +1,9 @@
-from logs import Logs
-from hydrus import Hydrus
-from telegram import Telegram
-from scheduler import Scheduler
-from queues import Queues
-from config import Config
+from modules.log_manager import LogManager
+from modules.hydrus_manager import HydrusManager
+from modules.telegram_manager import TelegramManager
+from modules.schedule_manager import ScheduleManager
+from modules.queue_manager import QueueManager
+from modules.config_manager import ConfigManager
 
 class HydrusTelegramBot:
 
@@ -15,14 +15,14 @@ class HydrusTelegramBot:
 
     def __init__(self):
         # Set up logging
-        self.logger = Logs.setup_logger('BOT')
+        self.logger = LogManager.setup_logger('BOT')
 
         # Initialize our modules.
-        self.config = Config('config.json')
-        self.queue = Queues(self.config, 'queue.json')
-        self.hydrus = Hydrus(self.config, self.queue)
-        self.telegram = Telegram(self.config)
-        self.scheduler = Scheduler()
+        self.config = ConfigManager('config.json')
+        self.queue = QueueManager(self.config, 'queue.json')
+        self.hydrus = HydrusManager(self.config, self.queue)
+        self.telegram = TelegramManager(self.config)
+        self.scheduler = ScheduleManager()
         
         # Queue Manager needs Hydrus and Telegram modules, but they need the Queue Manager too.
         # We pass the references to the Queue Manager now that they are initialized.

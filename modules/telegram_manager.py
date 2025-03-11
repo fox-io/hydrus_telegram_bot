@@ -5,16 +5,16 @@ from wand.image import Image
 import os
 import requests
 import math
-from logs import Logs
-from files import Files
+from modules.log_manager import LogManager
+from modules.file_manager import FileManager
 import json
 
-class Telegram:
+class TelegramManager:
     subreddit_regex = "/(r/[a-z0-9][_a-z0-9]{2,20})/"
     def __init__(self, config):
-        self.logger = Logs.setup_logger('TEL')
+        self.logger = LogManager.setup_logger('TEL')
         self.config = config
-        self.files = Files()
+        self.files = FileManager()
         if not self.config.access_token:
             self.logger.error('No Telegram token was provided.')
             return

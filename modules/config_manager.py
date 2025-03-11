@@ -1,7 +1,7 @@
-from logs import Logs
+from modules.log_manager import LogManager
 import json
 
-class Config:
+class ConfigManager:
     access_token = ""
     channel = 0
     bot_id = 0
@@ -13,7 +13,7 @@ class Config:
     timezone = None
     
     def __init__(self, config_file):
-        self.logger = Logs.setup_logger('CON')
+        self.logger = LogManager.setup_logger('CON')
         if not config_file:
             self.logger.error('Missing config file argument.')
             return

@@ -1,9 +1,9 @@
-from logs import Logs
+from modules.log_manager import LogManager
 import json
 
-class Files:
+class FileManager:
     def __init__(self):
-        self.logger = Logs.setup_logger('FIL')
+        self.logger = LogManager.setup_logger('FIL')
         self.logger.info('File Module initialized.')
 
     def operation(self, filename: str, mode: str, payload=None):

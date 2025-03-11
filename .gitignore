@@ -17,3 +17,4 @@ start.bat
 .DS_Store
 *.log
 /__pycache__/
+/modules/__pycache__/
