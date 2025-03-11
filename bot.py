@@ -4,7 +4,6 @@ from telegram import Telegram
 from scheduler import Scheduler
 from queues import Queues
 from config import Config
-from logs import Logs
 
 class HydrusTelegramBot:
 
