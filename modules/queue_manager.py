@@ -3,11 +3,9 @@ import pathlib
 import random
 import subprocess
 import typing as t
-
 import urllib
 from modules.log_manager import LogManager
 from modules.file_manager import FileManager
-import json
 
 class QueueManager:
     def __init__(self, config, queue_file):
