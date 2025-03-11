@@ -5,6 +5,7 @@ class Logs:
     @staticmethod
     def setup_logger(name='logs', out_file='log.log'):
         logger = logging.getLogger(name)
+        logger.propagate = False
         logger.setLevel(logging.DEBUG)
 
         # Prevent duplicate loggers from beging created
