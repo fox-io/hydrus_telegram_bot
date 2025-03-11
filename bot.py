@@ -37,4 +37,3 @@ if __name__ == '__main__':
     app = HydrusTelegramBot()
     app.on_scheduler()
     app.scheduler.run()
-
