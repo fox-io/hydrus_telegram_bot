@@ -73,7 +73,7 @@ class Telegram:
                             if "The submission you are trying to find is not in our database." in response.text:
                                 skip_link = True
                         except requests.exceptions.RequestException as e:
-                            self.logger.error("An error occurred when checking the Furaffinity link: ", str(e))
+                            self.logger.error(f"An error occurred when checking the Furaffinity link: {e}")
                     elif 'e621' in link.netloc:
                         website = 'e621'
                     elif 'reddit' in link.netloc:
@@ -115,7 +115,7 @@ class Telegram:
                 img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
                 img.save(filename=path)
         except Exception as e:
-            self.logger.error("Could not open the image: ", str(e))
+            self.logger.error(f"Could not open the image: {e}")
 
     def get_message_markup(self, image):
         # Build the message markup for the Telegram post.
@@ -183,4 +183,4 @@ class Telegram:
                 self.logger.error(f"Image failed to send. Response: {response_json}")
                 self.send_message(f"Image failed to send. {path}")
         except requests.exceptions.RequestException as e:
-            self.logger.error("Could not communicate with the Telegram bot: ", str(e))
+            self.logger.error(f"Could not communicate with the Telegram bot: {e}")
