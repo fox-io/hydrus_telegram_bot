@@ -1,5 +1,6 @@
 import logging
 from logging.handlers import RotatingFileHandler
+from colorama import init, Fore, Style
 
 class LogManager:
     @staticmethod
@@ -7,6 +8,20 @@ class LogManager:
         logger = logging.getLogger(name)
         logger.propagate = False
         logger.setLevel(logging.DEBUG)
+
+        class ColorFormatter(logging.Formatter):
+            COLORS = {
+                "DEBUG": Fore.CYAN,
+                "INFO": Fore.GREEN,
+                "WARNING": Fore.YELLOW,
+                "ERROR": Fore.RED,
+                "CRITICAL": Fore.RED + Style.BRIGHT
+            }
+
+            def format(self, record):
+                log_color = self.COLORS.get(record.levelname, Fore.WHITE)
+                log_message = super().format(record)
+                return f"{log_color}{log_message}{Style.RESET_ALL}"
 
         # Prevent duplicate loggers from beging created
         if logger.hasHandlers():
@@ -28,7 +43,7 @@ class LogManager:
 
         # Set the handler formatting
         file_handler.setFormatter(formatter)
-        console_handler.setFormatter(formatter)
+        console_handler.setFormatter(ColorFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 
         # Add the handlers to the logger
         logger.addHandler(file_handler)
