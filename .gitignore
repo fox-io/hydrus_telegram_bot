@@ -6,7 +6,7 @@
 /.venv/
 /.idea/
 /.vscode/
-/queue.json
+*/queue.json
 */config.json
 */config.json.dev
 */config.json.prod

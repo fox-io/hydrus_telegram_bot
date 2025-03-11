@@ -14,7 +14,7 @@ class QueueManager:
         self.logger = LogManager.setup_logger('QUE')
         self.config = config
         self.files = FileManager()
-        self.queue_file = queue_file
+        self.queue_file = 'queue/' + queue_file
         self.queue_loaded = False
         self.logger.info('Queues Module initialized.')
 
