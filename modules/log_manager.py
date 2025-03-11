@@ -31,7 +31,7 @@ class LogManager:
         file_handler = RotatingFileHandler(out_file, maxBytes=5*1024*1024, backupCount=3)
 
         # Set the message formatting
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s (%(name)s) %(levelname)s - %(message)s')
         formatter.datefmt = '%Y-%m-%d %H:%M:%S'
 
         # Create the handlers
@@ -43,7 +43,7 @@ class LogManager:
 
         # Set the handler formatting
         file_handler.setFormatter(formatter)
-        console_handler.setFormatter(ColorFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        console_handler.setFormatter(ColorFormatter('%(asctime)s (%(name)s) %(levelname)s - %(message)s'))
 
         # Add the handlers to the logger
         logger.addHandler(file_handler)
