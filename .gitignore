@@ -7,11 +7,11 @@
 /.idea/
 /.vscode/
 /queue.json
-/config.json
-/config.json.dev
-/config.json.prod
-/config-dev.bat
-/config-prod.bat
+data/config.json
+data/config.json.dev
+data/config.json.prod
+data/config-dev.bat
+data/config-prod.bat
 /venv/
 start.bat
 .DS_Store

@@ -24,7 +24,7 @@ class ConfigManager:
     def load_config(self):
         # Load the config file.
         try:
-            with open('config.json') as config:
+            with open('data/' + self.config_file) as config:
                 config_data = json.load(config)
                 self.access_token = config_data['telegram_access_token']
                 self.channel = config_data['telegram_channel']
