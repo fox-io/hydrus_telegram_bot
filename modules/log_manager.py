@@ -3,7 +3,7 @@ from logging.handlers import RotatingFileHandler
 
 class LogManager:
     @staticmethod
-    def setup_logger(name='logs', out_file='log.log'):
+    def setup_logger(name='logs', out_file='logs/log.log'):
         logger = logging.getLogger(name)
         logger.propagate = False
         logger.setLevel(logging.DEBUG)
