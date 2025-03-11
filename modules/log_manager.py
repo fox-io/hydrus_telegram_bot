@@ -2,6 +2,9 @@ import logging
 from logging.handlers import RotatingFileHandler
 from colorama import init, Fore, Style
 
+# Initialize colorama
+init(autoreset=True)
+
 class LogManager:
     @staticmethod
     def setup_logger(name='logs', out_file='logs/log.log'):
