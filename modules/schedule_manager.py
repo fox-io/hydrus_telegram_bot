@@ -3,7 +3,7 @@ import time
 from modules.log_manager import LogManager
 
 class ScheduleManager:
-    def __init__(self, timezone=-5, delay=60):
+    def __init__(self, timezone, delay):
         self.logger = LogManager.setup_logger('SCH')
         self.timezone = timezone
         self.delay = delay
