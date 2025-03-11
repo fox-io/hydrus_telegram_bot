@@ -14,14 +14,21 @@ class HydrusTelegramBot:
         self.scheduler.schedule_update(self.on_scheduler)
 
     def __init__(self):
+        # Set up logging
         self.logger = Logs.setup_logger('BOT')
+
+        # Initialize our modules.
         self.config = Config('config.json')
         self.queue = Queues(self.config, 'queue.json')
         self.hydrus = Hydrus(self.config, self.queue)
-        self.queue.set_hydrus(self.hydrus)
         self.telegram = Telegram(self.config)
-        self.queue.set_telegram(self.telegram)
         self.scheduler = Scheduler()
+        
+        # Queue Manager needs Hydrus and Telegram modules, but they need the Queue Manager too.
+        # We pass the references to the Queue Manager now that they are initialized.
+        self.queue.set_hydrus(self.hydrus)
+        self.queue.set_telegram(self.telegram)
+
         self.logger.info('HydrusTelegramBot initialized.')
 
 
