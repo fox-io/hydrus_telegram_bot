@@ -31,3 +31,8 @@ git clone https://github.com/fox-io/hydrus_telegram_bot.git
 	- Character(s)
 	- Source URL(s)
 6. After being posted via the bot, the images will be tagged with the posted_tag value from config/config.json in Hydrus (the queue_tag will also be removed).
+
+## Notes
+This bot uses external libraries for some functionality.
+- ImageMagick
+- ffmpeg
