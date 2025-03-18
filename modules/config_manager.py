@@ -2,6 +2,20 @@ from modules.log_manager import LogManager
 import json
 
 class ConfigManager:
+    """
+    ConfigManager handles loading and storing configuration settings for the bot.
+
+    Attributes:
+        access_token (str): The Telegram bot access token.
+        channel (int): The Telegram channel ID.
+        bot_id (int): The Telegram bot ID.
+        hydrus_api_key (str): The Hydrus API key.
+        queue_tag (str): The tag to use for searching Hydrus for files to queue.
+        posted_tag (str): The tag to use for marking files as posted in Hydrus.
+        admins (list): A list of Telegram user IDs that are bot admins.
+        delay (int): The delay between updates in minutes.
+        timezone (int): The timezone offset in hours.
+    """
     access_token = ""
     channel = 0
     bot_id = 0
@@ -13,6 +27,12 @@ class ConfigManager:
     timezone = None
 
     def __init__(self, config_file):
+        """
+        Initializes the ConfigManager object.
+
+        Args:
+            config_file (str): The name of the configuration file to load.
+        """
         self.logger = LogManager.setup_logger('CON')
         if not config_file:
             self.logger.error('Missing config file argument.')
@@ -22,7 +42,17 @@ class ConfigManager:
         self.logger.debug('Config Module initialized.')
 
     def load_config(self):
-        # Load the config file.
+        """
+        Loads the configuration settings from the config file.
+
+        Returns:
+            dict: The configuration
+
+        Raises:
+            FileNotFoundError: The config file is missing.
+            json.JSONDecodeError: The config file is corrupted.
+            AttributeError: The config file is missing required values.
+        """
         try:
             with open('config/' + self.config_file) as config:
                 config_data = json.load(config)
