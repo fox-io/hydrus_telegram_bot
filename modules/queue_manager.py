@@ -24,7 +24,7 @@ class QueueManager:
 
     def load_queue(self):
         # Load queue from file.
-        self.logger.debug(f"Queue loaded?: {self.queue_loaded and "yes" or "no"}")
+        self.logger.debug(f"Queue loaded?: {self.queue_loaded and 'yes' or 'no'}")
         if self.queue_loaded:
             self.logger.debug("Queue already loaded.")
             return
