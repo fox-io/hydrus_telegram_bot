@@ -10,8 +10,34 @@ from modules.file_manager import FileManager
 import json
 
 class TelegramManager:
+    """
+    TelegramManager handles communication with the Telegram bot.
+
+    Attributes:
+        logger (Logger): The logger for the TelegramManager.
+        config (ConfigManager): The configuration settings for the bot.
+        files (FileManager): The file manager for the bot.
+        token (str): The Telegram bot access token.
+
+    Methods:
+        build_telegram_api_url(method, payload, is_file): Constructs a Telegram API url for bot communication.
+        concatenate_sauce(known_urls): Return source URLs.
+        replace_html_entities(tag): Replace HTML entities in tags.
+        build_caption_buttons(caption): Assembles buttons to display under the Telegram post.
+        reduce_image_size(path): Telegram has limits on image file size and dimensions. We resize large things here.
+        get_message_markup(image): Build the message markup for the Telegram post.
+        api_request(api_call, payload, image, path): Send messages or images to Telegram bot.
+        send_message(message): Sends a message to all admin users.
+        send_image(api_call, image, path): Attempt to send the image to our Telegram bot.
+    """
     subreddit_regex = "/(r/[a-z0-9][_a-z0-9]{2,20})/"
     def __init__(self, config):
+        """
+        Initializes the TelegramManager object.
+
+        Args:
+            config (ConfigManager): The configuration settings for the bot.
+        """
         self.logger = LogManager.setup_logger('TEL')
         self.config = config
         self.files = FileManager()
@@ -22,7 +48,17 @@ class TelegramManager:
         self.logger.debug('Telegram Module initialized.')
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
-        # Constructs a Telegram API url for bot communication.
+        """
+        Constructs a Telegram API url for bot communication.
+
+        Args:
+            method (str): The method to call in the Telegram API.
+            payload (str): The payload to send to the Telegram API.
+            is_file (bool): True if the payload is a file.
+
+        Returns:
+            str: The Telegram API url
+        """
         url = f"https://api.telegram.org/{'file/' if is_file else ''}bot{self.token}"
         if not is_file and method:
             url += f"/{method}"
@@ -33,6 +69,15 @@ class TelegramManager:
 
     # noinspection PyMethodMayBeStatic
     def concatenate_sauce(self, known_urls: list):
+        """
+        Joins source URLs.
+
+        Args:
+            known_urls (list): A list of URLs to combine.
+
+        Returns:
+            str: A comma-separated list of source URLs.
+        """
         # Return source URLs.
         sauce = ''
         for url in known_urls:
@@ -42,14 +87,30 @@ class TelegramManager:
         return sauce
 
     def replace_html_entities(self, tag: str):
-        # Replace HTML entities in tags.
+        """
+        Replace problematic HTML entities in tags.
+
+        Args:
+            tag (str): The tag to clean.
+
+        Returns:
+            str: The cleaned tag.
+        """
         tag = tag.replace("&", "+")
         tag = tag.replace("<", "≺")
         tag = tag.replace(">", "≻")
         return tag
 
     def build_caption_buttons(self, caption: str):
-        # Assembles buttons to display under the Telegram post.
+        """
+        Assembles buttons to display under the Telegram post.
+
+        Args:
+            caption (str): The caption to parse.
+
+        Returns:
+            dict: The keyboard for the Telegram post.
+        """
         if caption is not None:
             keyboard = {'inline_keyboard': []}
             url_column = 0
@@ -98,7 +159,18 @@ class TelegramManager:
             return None
 
     def reduce_image_size(self, path):
-        # Telegram has limits on image file size and dimensions. We resize large things here.
+        """
+        Reduces image filesize and dimensions as needed for Telegram compatability.
+
+        Args:
+            path (str): The path to the image file.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: Could not open the image.
+        """
         try:
             img = Image(filename=path)
 
@@ -118,7 +190,15 @@ class TelegramManager:
             self.logger.error(f"Could not open the image: {e}")
 
     def get_message_markup(self, image):
-        # Build the message markup for the Telegram post.
+        """
+        Build the message markup for the Telegram post.
+
+        Args:
+            image (dict): The image data to post.
+
+        Returns:
+            str: The message markup for the Telegram post.
+        """
         message_markup = ''
 
         # Sauce Buttons
@@ -145,7 +225,18 @@ class TelegramManager:
         return message_markup
 
     def api_request(self, api_call, payload, image, path):
-        # Send messages or images to Telegram bot.
+        """
+        Send messages or images to Telegram bot.
+
+        Args:
+            api_call (str): The API call to make.
+            payload (dict): The payload to send to the API.
+            image (dict): The image data to send.
+            path (str): The path to the image file.
+
+        Raises:
+            requests.exceptions.RequestException: Could not communicate with Telegram.
+        """
         if api_call == 'sendMessage':
             try:
                 url = self.build_telegram_api_url(api_call, "?" + urllib.parse.urlencode(payload))
@@ -157,7 +248,12 @@ class TelegramManager:
                 self.logger.error(f"Could not communicate with Telegram: {e}")
 
     def send_message(self, message):
-        # Sends a message to all admin users.
+        """
+        Sends a message to all admin users.
+
+        Args:
+            message (str): The message to send.
+        """
         if not message:
             return
 
@@ -166,7 +262,17 @@ class TelegramManager:
             self.api_request('sendMessage', payload, None, None)
 
     def send_image(self, api_call, image, path):
-        # Attempt to send the image to our Telegram bot.
+        """
+        Sends an image to a Telegram bot.
+
+        Args:
+            api_call (str): The API call to make.
+            image (dict): The image data to send.
+            path (str): The path to the image file.
+
+        Raises:
+            requests.exceptions.RequestException: Could not communicate with the Telegram bot.
+        """
         sent_file = None
 
         try:
