@@ -36,6 +36,6 @@ class ConfigManager:
                 self.delay = config_data['delay']
                 self.timezone = config_data['timezone']
         except (FileNotFoundError, json.JSONDecodeError, AttributeError):
-            self.logger.error("Required file 'config.json' is missing or corrupted.")
+            self.logger.error("Required file 'config.json' is missing or corrupted. Create a copy of config/config.json.example as config/config.json and provide values matching your environment.")
             # Cannot continue.
             exit(1)
