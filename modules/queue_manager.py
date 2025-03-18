@@ -8,7 +8,24 @@ from modules.log_manager import LogManager
 from modules.file_manager import FileManager
 
 class QueueManager:
+    """
+    QueueManager handles the queue of images to be posted to Telegram.
+
+    Attributes:
+        config (ConfigManager): The configuration settings for the bot.
+        files (FileManager): The file manager for the bot.
+        queue_file (str): The name of the queue file.
+        queue_data (dict): The queue data.
+        queue_loaded (bool): True if the queue has been loaded.
+    """
     def __init__(self, config, queue_file):
+        """
+        Initializes the QueueManager object.
+
+        Args:
+            config (ConfigManager): The configuration settings for the bot.
+            queue_file (str): The name of the queue file
+        """
         self.logger = LogManager.setup_logger('QUE')
         self.config = config
         self.files = FileManager()
@@ -17,13 +34,27 @@ class QueueManager:
         self.logger.debug('Queue Module initialized.')
 
     def set_telegram(self, telegram):
+        """
+        Sets the TelegramManager object.
+
+        Args:
+            telegram (TelegramManager): The Telegram manager for the bot.
+        """
         self.telegram = telegram
 
     def set_hydrus(self, hydrus):
+        """
+        Sets the HydrusManager object.
+        
+        Args:
+            hydrus (HydrusManager): The Hydrus manager for the bot.
+        """
         self.hydrus = hydrus
 
     def load_queue(self):
-        # Load queue from file.
+        """
+        Loads the queue from the queue.json file.
+        """
         self.logger.debug(f"Queue loaded?: {self.queue_loaded and 'yes' or 'no'}")
         if self.queue_loaded:
             self.logger.debug("Queue already loaded.")
@@ -34,13 +65,23 @@ class QueueManager:
         self.queue_loaded = True
 
     def save_queue(self):
-        # Save queue to file.
+        """
+        Saves the queue to the queue.json file.
+        """
         self.files.operation(self.queue_file, 'w+', self.queue_data)
         self.logger.debug("Saved queue.json")
         self.queue_loaded = False
 
     def image_is_queued(self, filename: str):
-        # Check that image being enqueued is not already queued.
+        """
+        Checks if an image is already in the queue.
+
+        Args:
+            filename (str): The name of the image file.
+        
+        Returns:
+            bool: True if the image is already in the queue.
+        """
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
             for entry in self.queue_data['queue']:
@@ -49,9 +90,19 @@ class QueueManager:
         return False
 
     def save_image_to_queue(self, file_id):
-        try:
-            # Insert an image into the queue.
+        """
+        Saves an image from Hydrus to the queue.
 
+        Args:
+            file_id (int): The ID of the file to save.
+
+        Returns:
+            int: 1 if the image was saved, 0 if not.
+
+        Exceptions:
+            Exception: An error occurred while saving the image
+        """
+        try:
             # Load metadata from Hydrus.
             metadata = self.hydrus.get_metadata(file_id)
             if not metadata or 'metadata' not in metadata or not metadata["metadata"]:
@@ -152,6 +203,18 @@ class QueueManager:
             return 0
 
     def delete_from_queue(self, path, index):
+        """
+        Deletes an image from the queue and disk.
+
+        Args:
+            path (str): The path to the image file.
+            index (int): The index of the image in the queue.
+        
+        Exceptions:
+            IndexError: The image could not be removed from the queue.
+            OSError: The image could not be deleted from
+            Exception: The image could not be deleted.
+        """
         try:
             os.remove(path)
             if path.endswith(".webm"):
@@ -173,6 +236,12 @@ class QueueManager:
         self.logger.info("Queued images remaining: " + str(len(self.queue_data['queue'])))
 
     def process_queue(self):
+        """
+        Processes the queue by posting an image to Telegram.
+
+        Exceptions:
+            Exception: An error occurred while processing the queue.
+        """
         # Post next image to Telegram and remove it from the queue.
         self.logger.debug("Processing next image in queue.")
         self.load_queue()
