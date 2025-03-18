@@ -34,5 +34,5 @@ git clone https://github.com/fox-io/hydrus_telegram_bot.git
 
 ## Notes
 This bot uses external libraries for some functionality.
-- ImageMagick
+- ImageMagick - Make sure that your paths are set properly if you get import errors regarding Wand.
 - ffmpeg
