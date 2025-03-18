@@ -7,13 +7,35 @@ import os
 init(autoreset=True)
 
 class LogManager:
+    """
+    LogManager handles the logging system for the bot.
+    
+    Methods:
+        setup_logger(name, out_file): Sets up the logging system.
+    """
     @staticmethod
     def setup_logger(name='logs', out_file='logs/log.log'):
+        """
+        Sets up a logger with the specified name and output file.
+
+        Args:
+            name (str): The name of the logger.
+            out_file (str): The output file for the logger.
+
+        Returns:
+            logging.Logger: The configured logger object.
+        """
         logger = logging.getLogger(name)
         logger.propagate = False
         logger.setLevel(logging.DEBUG)
 
         class ColorFormatter(logging.Formatter):
+            """
+            ColorFormatter adds color to the log messages based on the log level.
+
+            Attributes:
+                COLORS (dict): A dictionary of colors for each log level.
+            """
             COLORS = {
                 "DEBUG": Fore.CYAN,
                 "INFO": Fore.GREEN,
@@ -23,6 +45,15 @@ class LogManager:
             }
 
             def format(self, record):
+                """
+                Formats the log message with color based on the log level.
+
+                Args:
+                    record (LogRecord): The log record to format.
+
+                Returns:
+                    str: The formatted log message.
+                """
                 log_color = self.COLORS.get(record.levelname, Fore.WHITE)
                 log_message = super().format(record)
                 return f"{log_color}{log_message}{Style.RESET_ALL}"
