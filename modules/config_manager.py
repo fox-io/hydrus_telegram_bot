@@ -15,6 +15,9 @@ class ConfigManager:
         admins (list): A list of Telegram user IDs that are bot admins.
         delay (int): The delay between updates in minutes.
         timezone (int): The timezone offset in hours.
+
+    Methods:
+        load_config(): Loads the configuration settings from the config file.
     """
     access_token = ""
     channel = 0

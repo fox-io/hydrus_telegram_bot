@@ -16,6 +16,13 @@ class HydrusManager:
         queue_loaded (bool): True if the queue has been loaded.
         hydrus_service_key (dict): The service keys for Hydrus.
         permissions (tuple): The required permissions for the Hydrus client.
+
+    Methods:
+        modify_tag(file_id, tag, action, service): Modifies a tag on a file in Hydrus.
+        check_hydrus_permissions(): Checks that Hydrus is running and the current permissions are valid.
+        get_metadata(id): Gets the metadata for a file in Hydrus.
+        get_file_content(id): Gets the content of a file in Hydrus.
+        get_new_hydrus_files(): Checks Hydrus for new files and adds them to the queue.
     """
     queue_data = []
     queue_loaded = False

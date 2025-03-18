@@ -17,6 +17,16 @@ class QueueManager:
         queue_file (str): The name of the queue file.
         queue_data (dict): The queue data.
         queue_loaded (bool): True if the queue has been loaded.
+
+    Methods:
+        set_telegram(telegram): Sets the TelegramManager object.
+        set_hydrus(hydrus): Sets the HydrusManager object.
+        load_queue(): Loads the queue from the queue.json file.
+        save_queue(): Saves the queue to the queue.json file.
+        image_is_queued(filename): Checks if an image is already in the queue.
+        save_image_to_queue(file_id): Saves an image from Hydrus to the queue.
+        delete_from_queue(path, index): Deletes an image from the queue and disk.
+        process_queue(): Processes the queue by posting an image to Telegram.
     """
     def __init__(self, config, queue_file):
         """
@@ -99,7 +109,7 @@ class QueueManager:
         Returns:
             int: 1 if the image was saved, 0 if not.
 
-        Exceptions:
+        Raises:
             Exception: An error occurred while saving the image
         """
         try:
@@ -210,7 +220,7 @@ class QueueManager:
             path (str): The path to the image file.
             index (int): The index of the image in the queue.
         
-        Exceptions:
+        Raises:
             IndexError: The image could not be removed from the queue.
             OSError: The image could not be deleted from
             Exception: The image could not be deleted.
@@ -239,7 +249,7 @@ class QueueManager:
         """
         Processes the queue by posting an image to Telegram.
 
-        Exceptions:
+        Raises:
             Exception: An error occurred while processing the queue.
         """
         # Post next image to Telegram and remove it from the queue.

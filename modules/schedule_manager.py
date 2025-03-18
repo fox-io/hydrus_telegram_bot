@@ -11,6 +11,11 @@ class ScheduleManager:
         delay (int): The delay between updates in minutes.
         scheduler (sched.scheduler): The scheduler object.
         logger (Logger): The logger
+
+    Methods:
+        get_next_update_time(): Returns the next update time based on the current time, timezone, and delay.
+        schedule_update(callback): Schedules the next update.
+        run(): Runs the scheduler indefinitely.
     """
     def __init__(self, timezone, delay):
         """
