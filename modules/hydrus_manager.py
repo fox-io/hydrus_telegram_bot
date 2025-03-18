@@ -6,6 +6,17 @@ import hydrus_api.utils
 import typing as t
 
 class HydrusManager:
+    """
+    HydrusManager handles interactions with the Hydrus Network client.
+
+    Attributes:
+        hydrus_client (hydrus_api.Client): The Hydrus API client.
+        queue_file (str): The name of the queue file.
+        queue_data (list): The queue data.
+        queue_loaded (bool): True if the queue has been loaded.
+        hydrus_service_key (dict): The service keys for Hydrus.
+        permissions (tuple): The required permissions for the Hydrus client.
+    """
     queue_data = []
     queue_loaded = False
     hydrus_service_key = {
@@ -21,6 +32,13 @@ class HydrusManager:
     )
 
     def __init__(self, config, queue):
+        """
+        Initializes the HydrusManager object.
+
+        Args:
+            config (ConfigManager): The configuration settings for the bot.
+            queue (QueueManager): The queue manager for the bot.
+        """
         self.logger = LogManager.setup_logger('HYD')
         self.config = config
         self.hydrus_client = hydrus_api.Client(self.config.hydrus_api_key)
@@ -29,6 +47,15 @@ class HydrusManager:
         self.logger.debug('Hydrus Module initialized.')
 
     def modify_tag(self, file_id: t.Union[int, list], tag: str, action: hydrus_api.TagAction, service: str):
+        """
+        Modifies a tag on a file in Hydrus.
+
+        Args:
+            file_id (int, list): The file ID(s) to modify.
+            tag (str): The tag to modify.
+            action (hydrus_api.TagAction): The action to take on the tag.
+            service (str): The service key to use.
+        """
         # Ensure file_id is a list
         if isinstance(file_id, int):
             file_id = [file_id]  # Convert single int to list
@@ -52,7 +79,12 @@ class HydrusManager:
         })
 
     def check_hydrus_permissions(self):
-        # Check that Hydrus is running and the current permissions are valid.
+        """
+        Checks that Hydrus is running and the current permissions are valid.
+
+        Returns:
+            bool: True if the permissions are valid.
+        """
         try:
             if not hydrus_api.utils.verify_permissions(self.hydrus_client, self.permissions):
                 self.logger.error("The client does not have the required permissions.")
@@ -64,6 +96,15 @@ class HydrusManager:
             return True
 
     def get_metadata(self, id):
+        """
+        Gets the metadata for a file in Hydrus.
+
+        Args:
+            id (int): The file ID to get metadata for.
+
+        Returns:
+            dict: The metadata for the file.
+        """
         try:
             return self.hydrus_client.get_file_metadata(file_ids=id)
         except Exception as e:
@@ -71,9 +112,21 @@ class HydrusManager:
             return None
 
     def get_file_content(self, id):
+        """
+        Gets the content of a file in Hydrus.
+
+        Args:
+            id (int): The file ID to get content for.
+
+        Returns:
+            bytes: The content of the file.
+        """
         return self.hydrus_client.get_file(file_id=id).content
 
     def get_new_hydrus_files(self):
+        """
+        Checks Hydrus for new files and adds them to the queue.
+        """
         # Check Hydrus for new images to enqueue.
         self.logger.debug("Checking Hydrus for new files.")
         if not self.check_hydrus_permissions():
