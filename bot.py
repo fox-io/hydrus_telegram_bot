@@ -6,14 +6,26 @@ from modules.queue_manager import QueueManager
 from modules.config_manager import ConfigManager
 
 class HydrusTelegramBot:
+    """
+    HydrusTelegramBot manages the connection between Hydrus Network and a Telegram bot.
+
+    Methods:
+        on_scheduler(): Processes scheduled updates, looping indefinitely.
+    """
 
     def on_scheduler(self):
+        """
+        Processes scheduled updates, looping indefinitely.
+        """
         self.queue.load_queue()
         self.hydrus.get_new_hydrus_files()
         self.queue.process_queue()
         self.scheduler.schedule_update(self.on_scheduler)
 
     def __init__(self):
+        """
+        Initializes the HydrusTelegramBot object.
+        """
         # Set up logging
         self.logger = LogManager.setup_logger('BOT')
 
