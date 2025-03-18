@@ -47,7 +47,7 @@ class QueueManager:
                 if entry['path'] == filename:
                     return True
         return False
-    
+
     def save_image_to_queue(self, file_id):
         try:
             # Insert an image into the queue.
@@ -57,7 +57,7 @@ class QueueManager:
             if not metadata or 'metadata' not in metadata or not metadata["metadata"]:
                 self.logger.error(f"No metadata found for file_id {file_id}.")
                 return 0
-            
+
             file_info = metadata['metadata'][0]
             if 'hash' not in file_info or 'ext' not in file_info or 'file_id' not in file_info or 'tags' not in file_info:
                 self.logger.error(f"Missing file info for file_id {file_id}.")
@@ -146,11 +146,11 @@ class QueueManager:
                 return 1
             else:
                 return 0
-            
+
         except Exception as e:
             self.logger.error("An error occurred while saving the image to the queue: ", str(e))
             return 0
-        
+
     def delete_from_queue(self, path, index):
         try:
             os.remove(path)
@@ -181,7 +181,7 @@ class QueueManager:
             if not self.queue_data or "queue" not in self.queue_data:
                 self.logger.error("Loaded queue data is missing or invalid.")
                 return
-            
+
             if not self.queue_data["queue"]:
                 self.logger.warning("Queue is empty.")
                 self.telegram.send_message("Queue is empty.")
@@ -216,7 +216,7 @@ class QueueManager:
         # Build Telegram bot API URL.
         message = self.telegram.get_message_markup(current_queued_image)
         request = self.telegram.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + '&' + message + '&parse_mode=html', False)
-        
+
         # Post the image to Telegram.
         self.telegram.send_image(request, telegram_file, path)
 

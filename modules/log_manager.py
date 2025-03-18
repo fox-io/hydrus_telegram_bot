@@ -29,7 +29,7 @@ class LogManager:
         # Prevent duplicate loggers from beging created
         if logger.hasHandlers():
             return logger
-        
+
         # Set up rotating log files
         file_handler = RotatingFileHandler(out_file, maxBytes=5*1024*1024, backupCount=3)
 

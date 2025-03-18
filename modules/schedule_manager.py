@@ -14,7 +14,7 @@ class ScheduleManager:
         # Calculate the next update time.
         current_time = (time.time() + ((60 * 60) * self.timezone))
         return (current_time - (current_time % (self.delay * 60))) + (self.delay * 60)
-    
+
     def schedule_update(self, callback):
         # Schedules an event for the next update time.
         next_time = self.get_next_update_time() - (3600 * self.timezone)

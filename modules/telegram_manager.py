@@ -29,7 +29,7 @@ class TelegramManager:
         if payload:
             url += f"?{payload.lstrip('?')}" # Make sure payload starts with a ?.
         return url
-    
+
 
     # noinspection PyMethodMayBeStatic
     def concatenate_sauce(self, known_urls: list):
@@ -40,7 +40,7 @@ class TelegramManager:
             if url.startswith("https://www.") or url.startswith("https://e621.net/posts"):
                 sauce = sauce + url + ','
         return sauce
-   
+
     def replace_html_entities(self, tag: str):
         # Replace HTML entities in tags.
         tag = tag.replace("&", "+")
@@ -96,7 +96,7 @@ class TelegramManager:
             return keyboard
         else:
             return None
-        
+
     def reduce_image_size(self, path):
         # Telegram has limits on image file size and dimensions. We resize large things here.
         try:
@@ -105,7 +105,7 @@ class TelegramManager:
             if img.format.lower() not in ["jpeg", "jpg", "png", "gif"]:
                 self.logger.warning(f"Skipping resize: Unsupported format {img.format}")
                 return
-            
+
             if img.width > 10000 or img.height > 10000:
                 img.transform(resize='1024x768')
                 img.save(filename=path)
@@ -120,7 +120,7 @@ class TelegramManager:
     def get_message_markup(self, image):
         # Build the message markup for the Telegram post.
         message_markup = ''
-        
+
         # Sauce Buttons
         sauce = self.build_caption_buttons(image['sauce']) if "sauce" in image else None
         if sauce:
@@ -143,7 +143,7 @@ class TelegramManager:
         message_markup += f"&caption={caption}"
 
         return message_markup
-    
+
     def api_request(self, api_call, payload, image, path):
         # Send messages or images to Telegram bot.
         if api_call == 'sendMessage':
@@ -155,16 +155,16 @@ class TelegramManager:
                     self.logger.error(f"Failed to send message: {response_json}")
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"Could not communicate with Telegram: {e}")
-    
+
     def send_message(self, message):
         # Sends a message to all admin users.
         if not message:
             return
-        
+
         for admin in self.config.admins:
             payload = {'chat_id': str(admin), 'text': message, 'parse_mode': 'Markdown'}
             self.api_request('sendMessage', payload, None, None)
-    
+
     def send_image(self, api_call, image, path):
         # Attempt to send the image to our Telegram bot.
         sent_file = None

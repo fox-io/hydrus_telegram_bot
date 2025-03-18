@@ -38,7 +38,7 @@ class HydrusManager:
             except ValueError:
                 self.logger.error(f"Invalid file_id format: {file_id}")
                 return
-        
+
         # Validate service key
         if service not in self.hydrus_service_key:
             self.logger.error(f"Invalid service key '{service}'")
@@ -62,17 +62,17 @@ class HydrusManager:
             return False
         else:
             return True
-        
+
     def get_metadata(self, id):
         try:
             return self.hydrus_client.get_file_metadata(file_ids=id)
         except Exception as e:
             self.logger.error("An error occurred while getting metadata: ", str(e))
             return None
-        
+
     def get_file_content(self, id):
         return self.hydrus_client.get_file(file_id=id).content
-        
+
     def get_new_hydrus_files(self):
         # Check Hydrus for new images to enqueue.
         self.logger.debug("Checking Hydrus for new files.")

@@ -23,7 +23,7 @@ class HydrusTelegramBot:
         self.hydrus = HydrusManager(self.config, self.queue)
         self.telegram = TelegramManager(self.config)
         self.scheduler = ScheduleManager(self.config.timezone, self.config.delay)
-        
+
         # Queue Manager needs Hydrus and Telegram modules, but they need the Queue Manager too.
         # We pass the references to the Queue Manager now that they are initialized.
         self.queue.set_hydrus(self.hydrus)
@@ -37,4 +37,3 @@ if __name__ == '__main__':
     app = HydrusTelegramBot()
     app.on_scheduler()
     app.scheduler.run()
-

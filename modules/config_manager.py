@@ -11,7 +11,7 @@ class ConfigManager:
     admins = []
     delay = None
     timezone = None
-    
+
     def __init__(self, config_file):
         self.logger = LogManager.setup_logger('CON')
         if not config_file:
@@ -20,7 +20,7 @@ class ConfigManager:
         self.config_file = config_file
         self.config_data = self.load_config()
         self.logger.debug('Config Module initialized.')
-    
+
     def load_config(self):
         # Load the config file.
         try:
