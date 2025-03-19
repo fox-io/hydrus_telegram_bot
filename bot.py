@@ -16,11 +16,17 @@ class HydrusTelegramBot:
     def on_scheduler(self):
         """
         Processes scheduled updates, looping indefinitely.
+
+        Raises:
+            Exception: An error occurred during the update process
         """
-        self.queue.load_queue()
-        self.hydrus.get_new_hydrus_files()
-        self.queue.process_queue()
-        self.scheduler.schedule_update(self.on_scheduler)
+        try:
+            self.queue.load_queue()
+            self.hydrus.get_new_hydrus_files()
+            self.queue.process_queue()
+            self.scheduler.schedule_update(self.on_scheduler)
+        except Exception as e:
+            self.logger.error(f"An error occurred during the update process: {e}")
 
     def __init__(self):
         """
