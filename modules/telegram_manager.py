@@ -31,6 +31,7 @@ class TelegramManager:
         send_image(api_call, image, path): Attempt to send the image to our Telegram bot.
     """
     subreddit_regex = "/(r/[a-z0-9][_a-z0-9]{2,20})/"
+
     def __init__(self, config):
         """
         Initializes the TelegramManager object.
