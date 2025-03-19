@@ -47,7 +47,7 @@ class HydrusManager:
             queue (QueueManager): The queue manager for the bot.
         """
         self.logger = LogManager.setup_logger('HYD')
-        self.config = config
+        self.config = config.config_data
         self.hydrus_client = hydrus_api.Client(self.config.hydrus_api_key)
         self.queue = queue
         self.queue_file = self.queue.queue_file

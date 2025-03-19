@@ -37,7 +37,7 @@ class QueueManager:
             queue_file (str): The name of the queue file
         """
         self.logger = LogManager.setup_logger('QUE')
-        self.config = config
+        self.config = config.config_data
         self.files = FileManager()
         self.queue_file = 'queue/' + queue_file
         self.queue_loaded = False
@@ -273,7 +273,7 @@ class QueueManager:
         current_queued_image = self.queue_data['queue'][random_index]
         path = "queue/" + current_queued_image['path']
 
-        channel = str(self.config.channel)
+        channel = str(self.config.telegram_channel)
 
         # Check if variable path ends in webm
         if path.endswith(".webm"):

@@ -40,12 +40,12 @@ class TelegramManager:
             config (ConfigManager): The configuration settings for the bot.
         """
         self.logger = LogManager.setup_logger('TEL')
-        self.config = config
+        self.config = config.config_data
         self.files = FileManager()
-        if not self.config.access_token:
+        if not self.config.telegram_access_token:
             self.logger.error('No Telegram token was provided.')
             return
-        self.token = self.config.access_token
+        self.token = self.config.telegram_access_token
         self.logger.debug('Telegram Module initialized.')
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):

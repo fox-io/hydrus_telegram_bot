@@ -40,7 +40,7 @@ class HydrusTelegramBot:
         self.queue = QueueManager(self.config, 'queue.json')
         self.hydrus = HydrusManager(self.config, self.queue)
         self.telegram = TelegramManager(self.config)
-        self.scheduler = ScheduleManager(self.config.timezone, self.config.delay)
+        self.scheduler = ScheduleManager(self.config.config_data.timezone, self.config.config_data.delay)
 
         # Queue Manager needs Hydrus and Telegram modules, but they need the Queue Manager too.
         # We pass the references to the Queue Manager now that they are initialized.
