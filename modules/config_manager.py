@@ -4,8 +4,36 @@ import json
 
 class ConfigModel(BaseModel):
     """
-    ConfigModel is a Pydantic model for the configuration settings.
+    Pydantic model for validating and managing bot configuration settings.
+
+    This model defines the structure and validation rules for the bot's configuration.
+    Each field includes a title and description for better documentation and error messages.
+
+    Attributes:
+        telegram_access_token (str): The Telegram bot access token.
+        telegram_channel (int): The Telegram channel ID where the bot will post.
+        telegram_bot_id (int): The unique identifier for the Telegram bot.
+        hydrus_api_key (str): The API key for accessing the Hydrus Network client.
+        queue_tag (str): The tag used to identify files to be queued in Hydrus.
+        posted_tag (str): The tag used to mark files as posted in Hydrus.
+        admins (list[int]): List of Telegram user IDs with admin privileges.
+        delay (int): The delay between updates in minutes.
+        timezone (int): The timezone offset in hours from UTC.
+
+    Example:
+        >>> config = ConfigModel(
+        ...     telegram_access_token="123:abc",
+        ...     telegram_channel=-100123456789,
+        ...     telegram_bot_id=123456789,
+        ...     hydrus_api_key="abc123",
+        ...     queue_tag="to_post",
+        ...     posted_tag="posted",
+        ...     admins=[123456789],
+        ...     delay=60,
+        ...     timezone=0
+        ... )
     """
+
     telegram_access_token: str = Field(..., title='Telegram Bot Access Token', description='The Telegram bot access token.')
     telegram_channel: int = Field(..., title='Telegram Channel ID', description='The Telegram channel ID.')
     telegram_bot_id: int = Field(..., title='Telegram Bot ID', description='The Telegram bot ID.')
@@ -18,22 +46,33 @@ class ConfigModel(BaseModel):
 
 class ConfigManager:
     """
-    ConfigManager handles loading and storing configuration settings for the bot.
+    Manages the loading and validation of bot configuration settings.
+
+    This class handles the loading of configuration settings from a JSON file,
+    validates them against the ConfigModel, and provides access to the validated
+    configuration throughout the application.
 
     Attributes:
         config_file (str): The name of the configuration file to load.
-        config_data (ConfigModel): The configuration settings.
+        config_data (ConfigModel): The validated configuration settings.
+        logger (Logger): The logger instance for this class.
 
-    Methods:
-        load_config(): Loads the configuration settings from the config file.
+    Example:
+        >>> config_manager = ConfigManager('config.json')
+        >>> bot_token = config_manager.config_data.telegram_access_token
     """
 
-    def __init__(self, config_file):
+    def __init__(self, config_file: str):
         """
-        Initializes the ConfigManager object.
+        Initializes the ConfigManager and loads the configuration.
 
         Args:
             config_file (str): The name of the configuration file to load.
+                              Should be located in the 'config/' directory.
+
+        Note:
+            If the config file is missing or invalid, the program will exit
+            with an error code.
         """
         self.logger = LogManager.setup_logger('CON')
         if not config_file:
@@ -45,15 +84,23 @@ class ConfigManager:
 
     def load_config(self) -> ConfigModel:
         """
-        Loads the configuration settings from the config file.
+        Loads and validates the configuration from the config file.
+
+        This method reads the JSON configuration file, validates it against
+        the ConfigModel, and returns the validated configuration. If any
+        validation errors occur, the program will exit with an error code.
 
         Returns:
-            ConfigModel: The configuration settings
+            ConfigModel: The validated configuration settings.
 
         Raises:
-            FileNotFoundError: The config file is missing.
-            json.JSONDecodeError: The config file is corrupted.
-            AttributeError: The config file is missing required values.
+            FileNotFoundError: If the config file is missing.
+            json.JSONDecodeError: If the config file contains invalid JSON.
+            ValidationError: If the config data doesn't match the ConfigModel schema.
+
+        Note:
+            The config file should be located in the 'config/' directory
+            relative to the current working directory.
         """
         try:
             with open('config/' + self.config_file) as config:
