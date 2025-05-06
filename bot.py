@@ -4,6 +4,11 @@ from modules.telegram_manager import TelegramManager
 from modules.schedule_manager import ScheduleManager
 from modules.queue_manager import QueueManager
 from modules.config_manager import ConfigManager
+import signal
+import time
+import sys
+from typing import Optional, Callable
+import functools
 
 class HydrusTelegramBot:
     """
@@ -11,22 +16,9 @@ class HydrusTelegramBot:
 
     Methods:
         on_scheduler(): Processes scheduled updates, looping indefinitely.
+        graceful_shutdown(): Handles graceful shutdown of the bot.
+        retry_with_backoff(): Decorator for retrying operations with exponential backoff.
     """
-
-    def on_scheduler(self):
-        """
-        Processes scheduled updates, looping indefinitely.
-
-        Raises:
-            Exception: An error occurred during the update process
-        """
-        try:
-            self.queue.load_queue()
-            self.hydrus.get_new_hydrus_files()
-            self.queue.process_queue()
-            self.scheduler.schedule_update(self.on_scheduler)
-        except Exception as e:
-            self.logger.error(f"An error occurred during the update process: {e}")
 
     def __init__(self):
         """
@@ -34,6 +26,7 @@ class HydrusTelegramBot:
         """
         # Set up logging
         self.logger = LogManager.setup_logger('BOT')
+        self.is_shutting_down = False
 
         # Initialize our modules.
         self.config = ConfigManager('config.json')
@@ -47,7 +40,91 @@ class HydrusTelegramBot:
         self.queue.set_hydrus(self.hydrus)
         self.queue.set_telegram(self.telegram)
 
+        # Set up signal handlers for graceful shutdown
+        signal.signal(signal.SIGINT, self.graceful_shutdown)
+        signal.signal(signal.SIGTERM, self.graceful_shutdown)
+
         self.logger.debug('HydrusTelegramBot initialized.')
+
+    def retry_with_backoff(self, max_retries: int = 3, initial_delay: float = 1.0, max_delay: float = 60.0):
+        """
+        Decorator for retrying operations with exponential backoff.
+
+        Args:
+            max_retries (int): Maximum number of retry attempts.
+            initial_delay (float): Initial delay between retries in seconds.
+            max_delay (float): Maximum delay between retries in seconds.
+
+        Returns:
+            Callable: Decorated function with retry logic.
+        """
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                delay = initial_delay
+                for attempt in range(max_retries):
+                    try:
+                        return func(*args, **kwargs)
+                    except Exception as e:
+                        if attempt == max_retries - 1:
+                            self.logger.error(f"Operation failed after {max_retries} attempts: {e}")
+                            raise
+                        self.logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                        delay = min(delay * 2, max_delay)
+                return None
+            return wrapper
+        return decorator
+
+    def graceful_shutdown(self, signum: Optional[int] = None, frame: Optional[object] = None):
+        """
+        Handles graceful shutdown of the bot.
+
+        Args:
+            signum (int, optional): Signal number.
+            frame (object, optional): Current stack frame.
+        """
+        if self.is_shutting_down:
+            return
+        
+        self.is_shutting_down = True
+        self.logger.info(f"Received shutdown signal {signum}. Initiating graceful shutdown...")
+        
+        try:
+            # Save any pending queue data
+            if hasattr(self, 'queue') and self.queue.queue_loaded:
+                self.queue.save_queue()
+            
+            # Notify admins about shutdown
+            if hasattr(self, 'telegram'):
+                self.telegram.send_message("Bot is shutting down gracefully.")
+            
+            self.logger.info("Shutdown complete. Exiting...")
+            sys.exit(0)
+        except Exception as e:
+            self.logger.error(f"Error during shutdown: {e}")
+            sys.exit(1)
+
+    @retry_with_backoff(max_retries=3, initial_delay=1.0, max_delay=60.0)
+    def on_scheduler(self):
+        """
+        Processes scheduled updates, looping indefinitely.
+
+        Raises:
+            Exception: An error occurred during the update process
+        """
+        if self.is_shutting_down:
+            return
+
+        try:
+            self.queue.load_queue()
+            self.hydrus.get_new_hydrus_files()
+            self.queue.process_queue()
+            self.scheduler.schedule_update(self.on_scheduler)
+        except Exception as e:
+            self.logger.error(f"An error occurred during the update process: {e}")
+            # Don't re-raise the exception to allow the scheduler to continue
+            # The retry decorator will handle retrying the operation
 
 
 if __name__ == '__main__':
