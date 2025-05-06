@@ -8,22 +8,45 @@ init(autoreset=True)
 
 class LogManager:
     """
-    LogManager handles the logging system for the bot.
-    
-    Methods:
-        setup_logger(name, out_file): Sets up the logging system.
+    Manages the logging system for the bot with colorized console output and file rotation.
+
+    This class provides a centralized logging system with the following features:
+    - Colorized console output for different log levels
+    - Rotating file handler with size limits
+    - Configurable log levels and formats
+    - Prevention of duplicate loggers
+
+    The class uses a static method to create and configure loggers, ensuring consistent
+    logging behavior across the application.
+
+    Example:
+        >>> logger = LogManager.setup_logger('MODULE_NAME')
+        >>> logger.info('This is an info message')
+        >>> logger.error('This is an error message')
     """
+
     @staticmethod
-    def setup_logger(name='logs', out_file='logs/log.log'):
+    def setup_logger(name: str = 'logs', out_file: str = 'logs/log.log') -> logging.Logger:
         """
-        Sets up a logger with the specified name and output file.
+        Creates and configures a logger with both file and console handlers.
+
+        This method sets up a logger with the following features:
+        - Rotating file handler (5MB max size, 3 backup files)
+        - Colorized console output
+        - Custom formatting with timestamps and module names
+        - Prevention of duplicate handlers
 
         Args:
-            name (str): The name of the logger.
-            out_file (str): The output file for the logger.
+            name (str): The name of the logger. Used to identify the source of log messages.
+                        Defaults to 'logs'.
+            out_file (str): The path to the log file. Defaults to 'logs/log.log'.
 
         Returns:
-            logging.Logger: The configured logger object.
+            logging.Logger: A configured logger instance ready for use.
+
+        Note:
+            If a logger with the same name already exists and has handlers,
+            the existing logger will be returned to prevent duplicate logging.
         """
         logger = logging.getLogger(name)
         logger.propagate = False
@@ -31,10 +54,14 @@ class LogManager:
 
         class ColorFormatter(logging.Formatter):
             """
-            ColorFormatter adds color to the log messages based on the log level.
+            Custom formatter that adds color to log messages based on their level.
+
+            This formatter extends the standard logging.Formatter to add color
+            to log messages in the console output. Different log levels are
+            assigned different colors for better visibility.
 
             Attributes:
-                COLORS (dict): A dictionary of colors for each log level.
+                COLORS (dict): Mapping of log levels to their corresponding colors.
             """
             COLORS = {
                 "DEBUG": Fore.CYAN,
@@ -44,21 +71,21 @@ class LogManager:
                 "CRITICAL": Fore.RED + Style.BRIGHT
             }
 
-            def format(self, record):
+            def format(self, record: logging.LogRecord) -> str:
                 """
-                Formats the log message with color based on the log level.
+                Formats the log record with color based on its level.
 
                 Args:
-                    record (LogRecord): The log record to format.
+                    record (logging.LogRecord): The log record to format.
 
                 Returns:
-                    str: The formatted log message.
+                    str: The formatted log message with color codes.
                 """
                 log_color = self.COLORS.get(record.levelname, Fore.WHITE)
                 log_message = super().format(record)
                 return f"{log_color}{log_message}{Style.RESET_ALL}"
             
-        # Prevent duplicate loggers from beging created
+        # Prevent duplicate loggers from being created
         if logger.hasHandlers():
             return logger
         
@@ -66,11 +93,17 @@ class LogManager:
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         
         # Set up rotating log files
-        file_handler = RotatingFileHandler(out_file, maxBytes=5*1024*1024, backupCount=3)
+        file_handler = RotatingFileHandler(
+            out_file,
+            maxBytes=5*1024*1024,  # 5MB
+            backupCount=3
+        )
         
         # Set the message formatting
-        formatter = logging.Formatter('%(asctime)s (%(name)s) %(levelname)s - %(message)s')
-        formatter.datefmt = '%Y-%m-%d %H:%M:%S'
+        formatter = logging.Formatter(
+            '%(asctime)s (%(name)s) %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
         
         # Create the handlers
         console_handler = logging.StreamHandler()
@@ -81,7 +114,9 @@ class LogManager:
         
         # Set the handler formatting
         file_handler.setFormatter(formatter)
-        console_handler.setFormatter(ColorFormatter('%(asctime)s (%(name)s) %(levelname)s - %(message)s'))
+        console_handler.setFormatter(ColorFormatter(
+            '%(asctime)s (%(name)s) %(levelname)s - %(message)s'
+        ))
         
         # Add the handlers to the logger
         logger.addHandler(file_handler)
