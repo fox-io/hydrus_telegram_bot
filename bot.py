@@ -46,7 +46,8 @@ class HydrusTelegramBot:
 
         self.logger.debug('HydrusTelegramBot initialized.')
 
-    def retry_with_backoff(self, max_retries: int = 3, initial_delay: float = 1.0, max_delay: float = 60.0):
+    @staticmethod
+    def retry_with_backoff(max_retries: int = 3, initial_delay: float = 1.0, max_delay: float = 60.0):
         """
         Decorator for retrying operations with exponential backoff.
 
@@ -67,9 +68,9 @@ class HydrusTelegramBot:
                         return func(*args, **kwargs)
                     except Exception as e:
                         if attempt == max_retries - 1:
-                            self.logger.error(f"Operation failed after {max_retries} attempts: {e}")
+                            print(f"Operation failed after {max_retries} attempts: {e}")
                             raise
-                        self.logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
+                        print(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
                         time.sleep(delay)
                         delay = min(delay * 2, max_delay)
                 return None
