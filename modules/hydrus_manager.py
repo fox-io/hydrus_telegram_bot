@@ -7,23 +7,26 @@ import typing as t
 
 class HydrusManager:
     """
-    HydrusManager handles interactions with the Hydrus Network client.
+    Manages interactions with the Hydrus Network client.
+
+    This class provides an interface for communicating with a Hydrus Network client
+    through its API. It handles file operations, tag management, and metadata retrieval.
 
     Attributes:
-        hydrus_client (hydrus_api.Client): The Hydrus API client.
-        queue_file (str): The name of the queue file.
-        queue_data (list): The queue data.
-        queue_loaded (bool): True if the queue has been loaded.
-        hydrus_service_key (dict): The service keys for Hydrus.
-        permissions (tuple): The required permissions for the Hydrus client.
+        hydrus_client (hydrus_api.Client): The Hydrus API client instance.
+        config (ConfigModel): The bot's configuration settings.
+        queue (QueueManager): The queue manager instance.
+        logger (Logger): The logger instance for this class.
+        queue_file (str): The path to the queue file.
+        hydrus_service_key (dict): Mapping of service names to their keys.
+        permissions (tuple): Required permissions for the Hydrus client.
 
-    Methods:
-        modify_tag(file_id, tag, action, service): Modifies a tag on a file in Hydrus.
-        check_hydrus_permissions(): Checks that Hydrus is running and the current permissions are valid.
-        get_metadata(id): Gets the metadata for a file in Hydrus.
-        get_file_content(id): Gets the content of a file in Hydrus.
-        get_new_hydrus_files(): Checks Hydrus for new files and adds them to the queue.
+    Example:
+        >>> hydrus = HydrusManager(config, queue)
+        >>> if hydrus.check_hydrus_permissions():
+        ...     files = hydrus.get_new_hydrus_files()
     """
+
     queue_data = []
     queue_loaded = False
     hydrus_service_key = {
@@ -40,11 +43,14 @@ class HydrusManager:
 
     def __init__(self, config, queue):
         """
-        Initializes the HydrusManager object.
+        Initializes the HydrusManager with configuration and queue manager.
 
         Args:
-            config (ConfigManager): The configuration settings for the bot.
-            queue (QueueManager): The queue manager for the bot.
+            config (ConfigManager): The bot's configuration manager.
+            queue (QueueManager): The queue manager instance.
+
+        Note:
+            The Hydrus client is initialized with the API key from the config.
         """
         self.logger = LogManager.setup_logger('HYD')
         self.config = config.config_data
@@ -55,13 +61,20 @@ class HydrusManager:
 
     def modify_tag(self, file_id: t.Union[int, list], tag: str, action: hydrus_api.TagAction, service: str):
         """
-        Modifies a tag on a file in Hydrus.
+        Modifies tags on files in Hydrus Network.
+
+        This method can add or remove tags from files in Hydrus. It supports
+        both single file operations and batch operations on multiple files.
 
         Args:
-            file_id (int, list): The file ID(s) to modify.
-            tag (str): The tag to modify.
-            action (hydrus_api.TagAction): The action to take on the tag.
-            service (str): The service key to use.
+            file_id (Union[int, list]): The file ID(s) to modify.
+            tag (str): The tag to add or remove.
+            action (hydrus_api.TagAction): The action to perform (ADD or DELETE).
+            service (str): The service key to use ('my_tags' or 'downloader_tags').
+
+        Note:
+            If file_id is a string, it will be converted to an integer.
+            If file_id is an integer, it will be converted to a single-item list.
         """
         # Ensure file_id is a list
         if isinstance(file_id, int):
@@ -85,12 +98,19 @@ class HydrusManager:
             }
         })
 
-    def check_hydrus_permissions(self):
+    def check_hydrus_permissions(self) -> bool:
         """
-        Checks that Hydrus is running and the current permissions are valid.
+        Verifies that Hydrus is running and the client has required permissions.
+
+        This method checks both the connection to Hydrus and the permissions
+        granted to the API key. It logs appropriate messages for any issues found.
 
         Returns:
-            bool: True if the permissions are valid.
+            bool: True if Hydrus is running and permissions are valid,
+                  False otherwise.
+
+        Note:
+            The required permissions are defined in the class's permissions tuple.
         """
         try:
             if not hydrus_api.utils.verify_permissions(self.hydrus_client, self.permissions):
@@ -102,15 +122,19 @@ class HydrusManager:
         else:
             return True
 
-    def get_metadata(self, id):
+    def get_metadata(self, id: int) -> dict:
         """
-        Gets the metadata for a file in Hydrus.
+        Retrieves metadata for a file from Hydrus Network.
 
         Args:
             id (int): The file ID to get metadata for.
 
         Returns:
-            dict: The metadata for the file.
+            dict: The file's metadata, or None if an error occurs.
+
+        Note:
+            The metadata includes information such as file hash, tags,
+            and known URLs.
         """
         try:
             return self.hydrus_client.get_file_metadata(file_ids=id)
@@ -118,21 +142,36 @@ class HydrusManager:
             self.logger.error("An error occurred while getting metadata: ", str(e))
             return None
 
-    def get_file_content(self, id):
+    def get_file_content(self, id: int) -> bytes:
         """
-        Gets the content of a file in Hydrus.
+        Retrieves the content of a file from Hydrus Network.
 
         Args:
             id (int): The file ID to get content for.
 
         Returns:
-            bytes: The content of the file.
+            bytes: The raw file content.
+
+        Note:
+            This method returns the raw file data, which should be handled
+            appropriately based on the file type.
         """
         return self.hydrus_client.get_file(file_id=id).content
 
     def get_new_hydrus_files(self):
         """
         Checks Hydrus for new files and adds them to the queue.
+
+        This method:
+        1. Searches for files with the queue tag
+        2. Processes them in chunks of 100
+        3. Saves them to the queue
+        4. Updates their tags
+
+        Note:
+            Files are processed in chunks to avoid overwhelming the API.
+            Each file's queue tag is removed and replaced with a posted tag
+            after being added to the queue.
         """
         # Check Hydrus for new images to enqueue.
         self.logger.debug("Checking Hydrus for new files.")
