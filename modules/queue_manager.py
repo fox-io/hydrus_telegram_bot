@@ -9,32 +9,38 @@ from modules.file_manager import FileManager
 
 class QueueManager:
     """
-    QueueManager handles the queue of images to be posted to Telegram.
+    Manages the queue of images to be posted to Telegram.
+
+    This class handles the storage, retrieval, and processing of images in the queue.
+    It interfaces with both Hydrus Network and Telegram to manage the posting workflow.
 
     Attributes:
-        config (ConfigManager): The configuration settings for the bot.
-        files (FileManager): The file manager for the bot.
-        queue_file (str): The name of the queue file.
-        queue_data (dict): The queue data.
-        queue_loaded (bool): True if the queue has been loaded.
+        config (ConfigModel): The bot's configuration settings.
+        files (FileManager): The file manager instance.
+        queue_file (str): The path to the queue file.
+        queue_data (dict): The current queue data.
+        queue_loaded (bool): Whether the queue has been loaded from disk.
+        telegram (TelegramManager): The Telegram manager instance.
+        hydrus (HydrusManager): The Hydrus manager instance.
+        logger (Logger): The logger instance for this class.
 
-    Methods:
-        set_telegram(telegram): Sets the TelegramManager object.
-        set_hydrus(hydrus): Sets the HydrusManager object.
-        load_queue(): Loads the queue from the queue.json file.
-        save_queue(): Saves the queue to the queue.json file.
-        image_is_queued(filename): Checks if an image is already in the queue.
-        save_image_to_queue(file_id): Saves an image from Hydrus to the queue.
-        delete_from_queue(path, index): Deletes an image from the queue and disk.
-        process_queue(): Processes the queue by posting an image to Telegram.
+    Example:
+        >>> queue = QueueManager(config, 'queue.json')
+        >>> queue.set_telegram(telegram)
+        >>> queue.set_hydrus(hydrus)
+        >>> queue.process_queue()
     """
-    def __init__(self, config, queue_file):
+
+    def __init__(self, config, queue_file: str):
         """
-        Initializes the QueueManager object.
+        Initializes the QueueManager with configuration and queue file.
 
         Args:
-            config (ConfigManager): The configuration settings for the bot.
-            queue_file (str): The name of the queue file
+            config (ConfigManager): The bot's configuration manager.
+            queue_file (str): The name of the queue file to use.
+
+        Note:
+            The queue file will be stored in the 'queue/' directory.
         """
         self.logger = LogManager.setup_logger('QUE')
         self.config = config.config_data
@@ -45,25 +51,32 @@ class QueueManager:
 
     def set_telegram(self, telegram):
         """
-        Sets the TelegramManager object.
+        Sets the Telegram manager instance.
 
         Args:
-            telegram (TelegramManager): The Telegram manager for the bot.
+            telegram (TelegramManager): The Telegram manager instance.
         """
         self.telegram = telegram
 
     def set_hydrus(self, hydrus):
         """
-        Sets the HydrusManager object.
+        Sets the Hydrus manager instance.
         
         Args:
-            hydrus (HydrusManager): The Hydrus manager for the bot.
+            hydrus (HydrusManager): The Hydrus manager instance.
         """
         self.hydrus = hydrus
 
     def load_queue(self):
         """
-        Loads the queue from the queue.json file.
+        Loads the queue data from the queue file.
+
+        This method reads the queue data from the JSON file and stores it in memory.
+        If the file doesn't exist, it creates a new queue with an empty list.
+
+        Note:
+            The queue is only loaded if it hasn't been loaded already.
+            This prevents unnecessary file I/O operations.
         """
         self.logger.debug(f"Queue loaded?: {self.queue_loaded and 'yes' or 'no'}")
         if self.queue_loaded:
@@ -76,21 +89,30 @@ class QueueManager:
 
     def save_queue(self):
         """
-        Saves the queue to the queue.json file.
+        Saves the current queue data to the queue file.
+
+        This method writes the current queue data to the JSON file and marks
+        the queue as unloaded to ensure fresh data is read next time.
+
+        Note:
+            The queue is marked as unloaded after saving to ensure data consistency.
         """
         self.files.operation(self.queue_file, 'w+', self.queue_data)
         self.logger.debug("Saved queue.json")
         self.queue_loaded = False
 
-    def image_is_queued(self, filename: str):
+    def image_is_queued(self, filename: str) -> bool:
         """
         Checks if an image is already in the queue.
 
         Args:
-            filename (str): The name of the image file.
+            filename (str): The name of the image file to check.
         
         Returns:
-            bool: True if the image is already in the queue.
+            bool: True if the image is in the queue, False otherwise.
+
+        Note:
+            This method automatically loads the queue if it hasn't been loaded.
         """
         self.load_queue()
         if len(self.queue_data['queue']) > 0:
@@ -99,18 +121,27 @@ class QueueManager:
                     return True
         return False
 
-    def save_image_to_queue(self, file_id):
+    def save_image_to_queue(self, file_id: int) -> int:
         """
         Saves an image from Hydrus to the queue.
+
+        This method:
+        1. Retrieves metadata from Hydrus
+        2. Downloads the file content
+        3. Saves it to the queue directory
+        4. Adds it to the queue data
 
         Args:
             file_id (int): The ID of the file to save.
 
         Returns:
-            int: 1 if the image was saved, 0 if not.
+            int: 1 if the image was saved successfully, 0 otherwise.
 
         Raises:
-            Exception: An error occurred while saving the image
+            Exception: If an error occurs while saving the image.
+
+        Note:
+            The image is only added to the queue if it's not already present.
         """
         try:
             # Load metadata from Hydrus.
@@ -142,38 +173,37 @@ class QueueManager:
             if self.hydrus.hydrus_service_key["downloader_tags"] not in tags_dict:
                 self.logger.error(f"No downloader tags found for file_id {file_id}.")
                 return 0
-            tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]].get('display_tags', {}).get('0', [])
 
-            # Extract creator tag if present.
+            # Process tags and create metadata
+            tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]]
             creator = None
+            title = None
+            character = None
+
             for tag in tags:
                 if "creator:" in tag:
                     tag = self.telegram.replace_html_entities(tag)
                     creator_tag = tag.split(":")[1]
-                    creator_name = creator_tag.title()
+                    creator_name = creator_tag.replace(" (artist)", "")
+                    creator_name = creator_name.title()
                     creator_urlencoded = creator_tag.replace(" ", "_")
                     creator_urlencoded = urllib.parse.quote(creator_urlencoded)
                     creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
-                    creator = creator_markup
+                    creator = creator is None and creator_markup or creator + "\n" + creator_markup
 
-            # Extract title tag(s) if present.
-            title = None
-            for tag in tags:
                 if "title:" in tag:
                     tag = self.telegram.replace_html_entities(tag)
                     title_tag = tag.split(":")[1]
-                    title_name = title_tag
-                    title_markup = f"{title_name}"
+                    title_name = title_tag.replace(" (series)", "")
+                    title_name = title_name.title()
+                    title_urlencoded = title_tag.replace(" ", "_")
+                    title_urlencoded = urllib.parse.quote(title_urlencoded)
+                    title_markup = f"<a href=\"https://e621.net/posts?tags={title_urlencoded}\">{title_name}</a>"
                     title = title is None and title_markup or title + "\n" + title_markup
 
-            # Extract character tag(s) if present.
-            character = None
-            for tag in tags:
                 if "character:" in tag:
                     tag = self.telegram.replace_html_entities(tag)
                     character_tag = tag.split(":")[1]
-                    # Some tags have "(character)" in their tag name. For display purposes, we don't need this.
-                    # We also capitalize the character names in the display portion of the link.
                     character_name = character_tag.replace(" (character)", "")
                     character_name = character_name.title()
                     character_urlencoded = character_tag.replace(" ", "_")
@@ -212,18 +242,27 @@ class QueueManager:
             self.logger.error("An error occurred while saving the image to the queue: ", str(e))
             return 0
 
-    def delete_from_queue(self, path, index):
+    def delete_from_queue(self, path: str, index: int):
         """
         Deletes an image from the queue and disk.
+
+        This method:
+        1. Deletes the image file from disk
+        2. Removes the image from the queue data
+        3. Saves the updated queue
+        4. Logs the remaining queue size
 
         Args:
             path (str): The path to the image file.
             index (int): The index of the image in the queue.
         
         Raises:
-            IndexError: The image could not be removed from the queue.
-            OSError: The image could not be deleted from
-            Exception: The image could not be deleted.
+            IndexError: If the image could not be removed from the queue.
+            OSError: If the image could not be deleted from disk.
+            Exception: If any other error occurs during deletion.
+
+        Note:
+            For webm files, both the original file and its mp4 conversion are deleted.
         """
         try:
             os.remove(path)
@@ -249,8 +288,19 @@ class QueueManager:
         """
         Processes the queue by posting an image to Telegram.
 
+        This method:
+        1. Loads the queue data
+        2. Selects a random image
+        3. Converts webm to mp4 if needed
+        4. Posts the image to Telegram
+        5. Deletes the image from queue and disk
+
         Raises:
-            Exception: An error occurred while processing the queue.
+            Exception: If an error occurs while processing the queue.
+
+        Note:
+            The method handles both image and video files, with special
+            processing for webm files including thumbnail generation.
         """
         # Post next image to Telegram and remove it from the queue.
         self.logger.debug("Processing next image in queue.")
