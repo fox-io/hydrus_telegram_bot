@@ -175,7 +175,7 @@ class QueueManager:
                 return 0
 
             # Process tags and create metadata
-            tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]]
+            tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]]['storage_tags']['0']
             creator = None
             title = None
             character = None
