@@ -9,6 +9,8 @@ import time
 import sys
 from typing import Optional, Callable
 import functools
+import threading
+import requests
 
 class HydrusTelegramBot:
     """
@@ -127,9 +129,36 @@ class HydrusTelegramBot:
             # Don't re-raise the exception to allow the scheduler to continue
             # The retry decorator will handle retrying the operation
 
+    def poll_telegram_updates(self):
+        """
+        Polls Telegram for new updates and processes incoming messages from admins.
+        """
+        offset = None
+        self.logger.info("Starting Telegram polling loop for admin messages.")
+        while not self.is_shutting_down:
+            try:
+                url = f"https://api.telegram.org/bot{self.telegram.token}/getUpdates"
+                params = {'timeout': 30, 'offset': offset}
+                response = requests.get(url, params=params, timeout=35)
+                if response.status_code == 200:
+                    data = response.json()
+                    for update in data.get('result', []):
+                        offset = update['update_id'] + 1
+                        message = update.get('message')
+                        if message:
+                            self.telegram.process_incoming_message(message)
+                else:
+                    self.logger.error(f"Failed to fetch updates: {response.text}")
+            except Exception as e:
+                self.logger.error(f"Error in Telegram polling: {e}")
+                time.sleep(5)
+
 
 if __name__ == '__main__':
     # Main program loop.
     app = HydrusTelegramBot()
+    # Start Telegram polling in a background thread
+    polling_thread = threading.Thread(target=app.poll_telegram_updates, daemon=True)
+    polling_thread.start()
     app.on_scheduler()
     app.scheduler.run()

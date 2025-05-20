@@ -291,3 +291,17 @@ class TelegramManager:
                 self.send_message(f"Image failed to send. {path}")
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Could not communicate with the Telegram bot: {e}")
+
+    def process_incoming_message(self, message: dict):
+        """
+        Processes incoming messages from Telegram admin users.
+
+        Args:
+            message (dict): The incoming message data from Telegram.
+        """
+        # Check if the message is from an admin
+        user_id = message.get('from', {}).get('id')
+        text = message.get('text', '').strip().lower()
+        if user_id in self.config.admins:
+            if text == 'test':
+                self.logger.debug('test')
