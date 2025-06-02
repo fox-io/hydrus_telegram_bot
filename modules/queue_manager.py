@@ -196,9 +196,7 @@ class QueueManager:
                     title_tag = tag.split(":")[1]
                     title_name = title_tag.replace(" (series)", "")
                     title_name = title_name.title()
-                    title_urlencoded = title_tag.replace(" ", "_")
-                    title_urlencoded = urllib.parse.quote(title_urlencoded)
-                    title_markup = f"<a href=\"https://e621.net/posts?tags={title_urlencoded}\">{title_name}</a>"
+                    title_markup = f"{title_name}"
                     title = title is None and title_markup or title + "\n" + title_markup
 
                 if "character:" in tag:
