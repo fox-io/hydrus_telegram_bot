@@ -196,6 +196,8 @@ class QueueManager:
                     title_tag = tag.split(":")[1]
                     title_name = title_tag.replace(" (series)", "")
                     title_name = title_name.title()
+                    # Remove non-ASCII characters from title_name
+                    title_name = ''.join(c for c in title_name if ord(c) < 128)
                     title_markup = f"{title_name}"
                     title = title is None and title_markup or title + "\n" + title_markup
 
