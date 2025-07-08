@@ -99,7 +99,7 @@ class QueueManager:
         """
         self.files.operation(self.queue_file, 'w+', self.queue_data)
         self.logger.debug("Saved queue.json")
-        self.queue_loaded = True
+        self.queue_loaded = False
 
     def image_is_queued(self, filename: str) -> bool:
         """
