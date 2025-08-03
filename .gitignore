@@ -14,7 +14,14 @@
 */config-prod.bat
 /venv/
 start.bat
+# macOS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 */*.log
 /__pycache__/
 /modules/__pycache__/
