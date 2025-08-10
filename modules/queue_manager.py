@@ -24,12 +24,54 @@ class QueueManager:
         hydrus (HydrusManager): The Hydrus manager instance.
         logger (Logger): The logger instance for this class.
 
-    Example:
-        >>> queue = QueueManager(config, 'queue.json')
-        >>> queue.set_telegram(telegram)
-        >>> queue.set_hydrus(hydrus)
-        >>> queue.process_queue()
+    Methods:
+        set_telegram(telegram): Sets the Telegram manager for the bot.
+        set_hydrus(hydrus): Sets the Hydrus manager for the bot.
+        load_queue(): Loads the queue data from the queue file.
+        save_queue(): Saves the queue data to the queue file.
+        image_is_queued(filename): Checks if an image is already in the queue.
+        save_image_to_queue(file_id): Saves an image to the queue.
+        process_queue(): Processes the queue by posting an image to Telegram.
+        delete_from_queue(path, index): Deletes an image from the queue and disk.
     """
+
+    def _proper_title(self, text: str) -> str:
+        """
+        Converts text to title case while properly handling apostrophes.
+        
+        This function fixes the issue with Python's .title() method which
+        incorrectly capitalizes letters after apostrophes (e.g., "don't" -> "Don'T").
+        
+        Args:
+            text (str): The text to convert to title case.
+            
+        Returns:
+            str: The text in proper title case.
+        """
+        if not text:
+            return text
+        
+        # Split by spaces and handle each word
+        words = text.split()
+        title_words = []
+        
+        for word in words:
+            # Handle apostrophes by splitting on them and capitalizing each part
+            if "'" in word:
+                parts = word.split("'")
+                title_parts = []
+                for i, part in enumerate(parts):
+                    if part:  # Only capitalize non-empty parts
+                        if i == 0:  # First part gets title case
+                            title_parts.append(part.capitalize())
+                        else:  # Parts after apostrophe stay lowercase
+                            title_parts.append(part.lower())
+                title_words.append("'".join(title_parts))
+            else:
+                # No apostrophe, just capitalize normally
+                title_words.append(word.capitalize())
+        
+        return " ".join(title_words)
 
     def __init__(self, config, queue_file: str):
         """
@@ -185,7 +227,7 @@ class QueueManager:
                     tag = self.telegram.replace_html_entities(tag)
                     creator_tag = tag.split(":")[1]
                     creator_name = creator_tag.replace(" (artist)", "")
-                    creator_name = creator_name.title()
+                    creator_name = self._proper_title(creator_name)
                     creator_urlencoded = creator_tag.replace(" ", "_")
                     creator_urlencoded = urllib.parse.quote(creator_urlencoded)
                     creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
@@ -195,7 +237,7 @@ class QueueManager:
                     tag = self.telegram.replace_html_entities(tag)
                     title_tag = tag.split(":")[1]
                     title_name = title_tag.replace(" (series)", "")
-                    title_name = title_name.title()
+                    title_name = self._proper_title(title_name)
                     # Remove non-ASCII characters from title_name
                     title_name = ''.join(c for c in title_name if ord(c) < 128)
                     title_markup = f"{title_name}"
@@ -205,7 +247,7 @@ class QueueManager:
                     tag = self.telegram.replace_html_entities(tag)
                     character_tag = tag.split(":")[1]
                     character_name = character_tag.replace(" (character)", "")
-                    character_name = character_name.title()
+                    character_name = self._proper_title(character_name)
                     character_urlencoded = character_tag.replace(" ", "_")
                     character_urlencoded = urllib.parse.quote(character_urlencoded)
                     character_markup = f"<a href=\"https://e621.net/posts?tags={character_urlencoded}\">{character_name}</a>"
