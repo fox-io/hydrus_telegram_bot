@@ -31,7 +31,8 @@ class ConfigModel(BaseModel):
         ...     admins=[123456789],
         ...     delay=60,
         ...     timezone=0,
-        ...     max_image_dimension=10000
+        ...     max_image_dimension=10000,
+        ...     max_file_size=10000000
         ... )
     """
 
@@ -45,6 +46,7 @@ class ConfigModel(BaseModel):
     delay: int = Field(..., title='Delay', description='The delay between updates in minutes.')
     timezone: int = Field(..., title='Timezone', description='The timezone offset in hours.')
     max_image_dimension: int = Field(..., title='Max Image Dimension', description='The maximum dimension of an image in pixels.')
+    max_file_size: int = Field(..., title='Max File Size', description='The maximum size of a file in bytes.')
 
 class ConfigManager:
     """

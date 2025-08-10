@@ -183,8 +183,8 @@ class TelegramManager:
                 img.transform(resize='1024x768')
                 img.save(filename=path)
 
-            if os.path.getsize(path) > 10000000:
-                size_ratio = os.path.getsize(path) / 10000000
+            if os.path.getsize(path) > self.config.max_file_size:
+                size_ratio = os.path.getsize(path) / self.config.max_file_size
                 img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
                 img.save(filename=path)
         except Exception as e:
