@@ -30,7 +30,8 @@ class ConfigModel(BaseModel):
         ...     posted_tag="posted",
         ...     admins=[123456789],
         ...     delay=60,
-        ...     timezone=0
+        ...     timezone=0,
+        ...     max_image_dimension=10000
         ... )
     """
 
@@ -43,6 +44,7 @@ class ConfigModel(BaseModel):
     admins: list[int] = Field(..., title='Admins', description='A list of Telegram user IDs that are bot admins.')
     delay: int = Field(..., title='Delay', description='The delay between updates in minutes.')
     timezone: int = Field(..., title='Timezone', description='The timezone offset in hours.')
+    max_image_dimension: int = Field(..., title='Max Image Dimension', description='The maximum dimension of an image in pixels.')
 
 class ConfigManager:
     """
