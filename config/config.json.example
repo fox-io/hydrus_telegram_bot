@@ -7,5 +7,6 @@
   "queue_tag": "share_to_telegram_tag",
   "posted_tag": "posted:telegram",
   "delay": 60,
-  "timezone": 0
+  "timezone": 0,
+  "max_image_dimension": 10000
 }

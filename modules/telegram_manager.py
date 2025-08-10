@@ -179,7 +179,7 @@ class TelegramManager:
                 self.logger.warning(f"Skipping resize: Unsupported format {img.format}")
                 return
 
-            if img.width > 10000 or img.height > 10000:
+            if img.width > self.config.max_image_dimension or img.height > self.config.max_image_dimension:
                 img.transform(resize='1024x768')
                 img.save(filename=path)
 
