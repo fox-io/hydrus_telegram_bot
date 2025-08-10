@@ -71,9 +71,9 @@ class HydrusTelegramBot:
                         return func(*args, **kwargs)
                     except Exception as e:
                         if attempt == max_retries - 1:
-                            print(f"Operation failed after {max_retries} attempts: {e}")
+                            self.logger.error(f"Operation failed after {max_retries} attempts: {e}")
                             raise
-                        print(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
+                        self.logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
                         time.sleep(delay)
                         delay = min(delay * 2, max_delay)
                 return None
