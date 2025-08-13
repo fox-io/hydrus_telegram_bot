@@ -83,7 +83,14 @@ class LogManager:
                 """
                 log_color = self.COLORS.get(record.levelname, Fore.WHITE)
                 log_message = super().format(record)
-                return f"{log_color}{log_message}{Style.RESET_ALL}"
+                
+                # Handle Unicode characters safely
+                try:
+                    return f"{log_color}{log_message}{Style.RESET_ALL}"
+                except UnicodeEncodeError:
+                    # If Unicode fails, replace problematic characters
+                    safe_message = log_message.encode('utf-8', errors='replace').decode('utf-8')
+                    return f"{log_color}{safe_message}{Style.RESET_ALL}"
             
         # Prevent duplicate loggers from being created
         if logger.hasHandlers():
@@ -106,41 +113,8 @@ class LogManager:
         )
         
         # Create the handlers
-        # Use sys.stdout with proper encoding for Unicode support
         import sys
-        
-        # Create a custom stream handler that can handle Unicode characters
-        import platform
-        
-        # Set environment variable to force UTF-8 encoding on Windows
-        if platform.system() == 'Windows':
-            os.environ['PYTHONIOENCODING'] = 'utf-8'
-        
-        # Create a Unicode-safe stream handler for all platforms
-        class UnicodeSafeStreamHandler(logging.StreamHandler):
-            def emit(self, record):
-                try:
-                    msg = self.format(record)
-                    stream = self.stream
-                    
-                    # Try to write the message directly first
-                    try:
-                        stream.write(msg)
-                    except UnicodeEncodeError:
-                        # If that fails, try to encode with error handling
-                        if platform.system() == 'Windows':
-                            # On Windows, use cp1252 with replacement
-                            safe_msg = msg.encode('cp1252', errors='replace').decode('cp1252')
-                        else:
-                            # On other platforms, use UTF-8 with replacement
-                            safe_msg = msg.encode('utf-8', errors='replace').decode('utf-8')
-                        stream.write(safe_msg)
-                    
-                    self.flush()
-                except Exception:
-                    self.handleError(record)
-        
-        console_handler = UnicodeSafeStreamHandler(sys.stdout)
+        console_handler = logging.StreamHandler(sys.stdout)
         
         # Set the handler levels
         file_handler.setLevel(logging.DEBUG)
