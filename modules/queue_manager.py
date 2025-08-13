@@ -217,10 +217,17 @@ class QueueManager:
                 return 0
                 
             # Debug logging to understand the tags structure
-            self.logger.debug(f"Tags structure for file_id {file_id}: {tags_dict}")
-            self.logger.debug(f"Downloader tags key: {self.hydrus.hydrus_service_key['downloader_tags']}")
-            if self.hydrus.hydrus_service_key["downloader_tags"] in tags_dict:
-                self.logger.debug(f"Downloader tags structure: {tags_dict[self.hydrus.hydrus_service_key['downloader_tags']]}")
+            # Commented out to avoid Unicode encoding issues in console logging
+            # Uncomment the lines below if you need to debug tag structures
+            # try:
+            #     sanitized_tags = str(tags_dict).encode('ascii', errors='replace').decode('ascii')
+            #     self.logger.debug(f"Tags structure for file_id {file_id}: {sanitized_tags}")
+            #     self.logger.debug(f"Downloader tags key: {self.hydrus.hydrus_service_key['downloader_tags']}")
+            #     if self.hydrus.hydrus_service_key["downloader_tags"] in tags_dict:
+            #         sanitized_downloader_tags = str(tags_dict[self.hydrus.hydrus_service_key['downloader_tags']]).encode('ascii', errors='replace').decode('ascii')
+            #         self.logger.debug(f"Downloader tags structure: {sanitized_downloader_tags}")
+            # except Exception as e:
+            #     self.logger.debug(f"Could not log tags structure due to encoding issues: {e}")
 
             # Process tags and create metadata
             downloader_tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]]
