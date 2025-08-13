@@ -139,7 +139,7 @@ class HydrusManager:
         try:
             return self.hydrus_client.get_file_metadata(file_ids=id)
         except Exception as e:
-            self.logger.error("An error occurred while getting metadata: ", str(e))
+            self.logger.error(f"An error occurred while getting metadata: {e}")
             return None
 
     def get_file_content(self, id: int) -> bytes:

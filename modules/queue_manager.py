@@ -215,9 +215,29 @@ class QueueManager:
             if self.hydrus.hydrus_service_key["downloader_tags"] not in tags_dict:
                 self.logger.error(f"No downloader tags found for file_id {file_id}.")
                 return 0
+                
+            # Debug logging to understand the tags structure
+            self.logger.debug(f"Tags structure for file_id {file_id}: {tags_dict}")
+            self.logger.debug(f"Downloader tags key: {self.hydrus.hydrus_service_key['downloader_tags']}")
+            if self.hydrus.hydrus_service_key["downloader_tags"] in tags_dict:
+                self.logger.debug(f"Downloader tags structure: {tags_dict[self.hydrus.hydrus_service_key['downloader_tags']]}")
 
             # Process tags and create metadata
-            tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]]['storage_tags']['0']
+            downloader_tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]]
+            
+            # Check if downloader_tags has the expected structure
+            if 'storage_tags' not in downloader_tags:
+                self.logger.warning(f"No storage_tags found in downloader_tags for file_id {file_id}. Skipping tag processing.")
+                tags = []
+            else:
+                storage_tags = downloader_tags['storage_tags']
+                
+                # Check if storage_tags has the expected structure
+                if not storage_tags or '0' not in storage_tags:
+                    self.logger.warning(f"No storage tags found for file_id {file_id} or missing '0' key. Skipping tag processing.")
+                    tags = []
+                else:
+                    tags = storage_tags['0']
             creator = None
             title = None
             character = None
@@ -254,7 +274,8 @@ class QueueManager:
                     character = character is None and character_markup or character + "\n" + character_markup
 
             # Create sauce links.
-            sauce = self.telegram.concatenate_sauce(metadata['metadata'][0]['known_urls'])
+            known_urls = metadata['metadata'][0].get('known_urls', [])
+            sauce = self.telegram.concatenate_sauce(known_urls) if known_urls else None
 
             # Add image to queue if not present.
             if not self.image_is_queued(filename):
@@ -281,7 +302,7 @@ class QueueManager:
                 return 0
 
         except Exception as e:
-            self.logger.error("An error occurred while saving the image to the queue: ", str(e))
+            self.logger.error(f"An error occurred while saving the image to the queue: {e}")
             return 0
 
     def delete_from_queue(self, path: str, index: int):
