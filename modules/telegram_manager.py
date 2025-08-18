@@ -8,6 +8,7 @@ import math
 from modules.log_manager import LogManager
 from modules.file_manager import FileManager
 import json
+import time
 
 class TelegramManager:
     """
@@ -305,3 +306,30 @@ class TelegramManager:
         if user_id in self.config.admins:
             if text == 'test':
                 self.logger.debug('test')
+
+    def poll_telegram_updates(self, is_shutting_down_func):
+        """
+        Polls Telegram for new updates and processes incoming messages from admins.
+        
+        Args:
+            is_shutting_down_func (callable): Function that returns whether the bot is shutting down.
+        """
+        offset = None
+        self.logger.info("Starting Telegram polling loop for admin messages.")
+        while not is_shutting_down_func():
+            try:
+                url = f"https://api.telegram.org/bot{self.token}/getUpdates"
+                params = {'timeout': 30, 'offset': offset}
+                response = requests.get(url, params=params, timeout=35)
+                if response.status_code == 200:
+                    data = response.json()
+                    for update in data.get('result', []):
+                        offset = update['update_id'] + 1
+                        message = update.get('message')
+                        if message:
+                            self.process_incoming_message(message)
+                else:
+                    self.logger.error(f"Failed to fetch updates: {response.text}")
+            except Exception as e:
+                self.logger.error(f"Error in Telegram polling: {e}")
+                time.sleep(5)
