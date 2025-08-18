@@ -23,6 +23,8 @@ git clone https://github.com/fox-io/hydrus_telegram_bot.git
 	- Hydrus tag for images that have been posted
 	- Delay (in minutes) between Telegram posts
 	- Timezone offset
+	- Max image dimension (default: 10000)
+	- Max file size (default: 10000000)
 3. Enable the Client API in Hydrus.
 4. Tag images you want to post to Telegram in Hydrus with the queue_tag value in config/config.json.
 5. Image metadata from Hydrus will be displayed:
