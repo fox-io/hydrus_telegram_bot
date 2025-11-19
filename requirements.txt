@@ -10,5 +10,5 @@ pydantic==2.10.6
 pydantic_core==2.27.2
 requests==2.32.4
 typing_extensions==4.12.2
-urllib3==2.2.1
+urllib3==2.5.0
 Wand==0.6.13
