@@ -8,8 +8,13 @@
 *.webm
 */queue.json
 
-# ----- Logs -----
-*/*.log*
+# ----- Logs folder -----
+logs/*
+!logs/.gitkeep
+
+# ----- Queue folder -----
+queue/*
+!queue/.gitkeep
 
 # ----- Virtual environments & IDE settings -----
 /.venv/
