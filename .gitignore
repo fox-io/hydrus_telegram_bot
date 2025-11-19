@@ -1,29 +1,48 @@
+# Ignored files for Hydrus Telegram Bot
+
+# ----- Queue (media + metadata) -----
 *.png
 *.jpeg
 *.jpg
 *.mp4
 *.webm
+*/queue.json
+
+# ----- Logs -----
+*/*.log*
+
+# ----- Virtual environments & IDE settings -----
 /.venv/
 /.idea/
 /.vscode/
-*/queue.json
-*/config.json
-*/config.json.dev
-*/config.json.prod
-*/config-dev.bat
-*/config-prod.bat
-/venv/
-start.bat
+/.github/
+
+# ----- Configuration files -----
+config/config.json
+config/config.json.dev
+config/config.json.prod
+config-dev.bat
+config-prod.bat
+
+# ----- OS Specific files -----
 # macOS
 .DS_Store
-.DS_Store?
+._*
+.Spotlight*
+.Trashes
+# Windows
+ehthumbs.db
+Thumbs.db
+start.bat
+
+.DS_Store
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
-Thumbs.db
-*/*.log
-/__pycache__/
-/modules/__pycache__/
-/logs/
-/.github/
+# Windows
+
+
+# ----- Python artifacts -----
+__pycache__/
+**/__pycache__/
+*.py[cod]
