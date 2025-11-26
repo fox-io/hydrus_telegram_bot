@@ -5,6 +5,9 @@ from wand.image import Image
 import os
 import requests
 import math
+from requests.adapters import HTTPAdapter
+from requests.exceptions import ReadTimeout, ConnectionError, RequestException
+from urllib3.util.retry import Retry
 from modules.log_manager import LogManager
 from modules.file_manager import FileManager
 import json
@@ -47,6 +50,16 @@ class TelegramManager:
             self.logger.error('No Telegram token was provided.')
             return
         self.token = self.config.telegram_access_token
+        self.polling_session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.polling_session.mount("https://", adapter)
+        self.polling_session.mount("http://", adapter)
         self.logger.debug('Telegram Module initialized.')
 
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
@@ -176,7 +189,9 @@ class TelegramManager:
         try:
             img = Image(filename=path)
 
-            if img.format.lower() not in ["jpeg", "jpg", "png", "gif"]:
+            # Wand can return None for unknown formats; guard before lower()
+            img_format = img.format.lower() if img.format else None
+            if img_format not in ["jpeg", "jpg", "png", "gif"]:
                 self.logger.warning(f"Skipping resize: Unsupported format {img.format}")
                 return
 
@@ -315,21 +330,68 @@ class TelegramManager:
             is_shutting_down_func (callable): Function that returns whether the bot is shutting down.
         """
         offset = None
+        consecutive_timeouts = 0
+        consecutive_errors = 0
         self.logger.info("Starting Telegram polling loop for admin messages.")
         while not is_shutting_down_func():
+            start_time = time.monotonic()
             try:
                 url = f"https://api.telegram.org/bot{self.token}/getUpdates"
                 params = {'timeout': 30, 'offset': offset}
-                response = requests.get(url, params=params, timeout=35)
+                response = self.polling_session.get(url, params=params, timeout=(5, 35))
+                elapsed = time.monotonic() - start_time
                 if response.status_code == 200:
                     data = response.json()
+                    updates = data.get('result', [])
+                    if updates:
+                        self.logger.debug(f"Polling succeeded in {elapsed:.2f}s with {len(updates)} update(s). Offset now {offset}.")
+                    else:
+                        # Long polls often return empty when no messages exist. Keep it quiet but traceable.
+                        self.logger.debug(f"Polling completed in {elapsed:.2f}s with no updates. Offset {offset}.")
                     for update in data.get('result', []):
                         offset = update['update_id'] + 1
                         message = update.get('message')
                         if message:
                             self.process_incoming_message(message)
+                    consecutive_timeouts = 0
+                    consecutive_errors = 0
                 else:
-                    self.logger.error(f"Failed to fetch updates: {response.text}")
+                    consecutive_errors += 1
+                    delay = min(5 * consecutive_errors, 60)
+                    self.logger.warning(
+                        f"Failed to fetch updates (status={response.status_code}) after {elapsed:.2f}s. "
+                        f"Body preview: {response.text[:200]!r}. Backing off {delay}s."
+                    )
+                    time.sleep(delay)
+            except ReadTimeout:
+                consecutive_timeouts += 1
+                elapsed = time.monotonic() - start_time
+                log_method = self.logger.info if consecutive_timeouts % 3 == 0 else self.logger.debug
+                log_method(f"Telegram long poll timed out after {elapsed:.2f}s (#{consecutive_timeouts}).")
+            except ConnectionError as e:
+                consecutive_errors += 1
+                elapsed = time.monotonic() - start_time
+                delay = min(5 * consecutive_errors, 60)
+                self.logger.warning(
+                    f"Telegram polling connection error after {elapsed:.2f}s (#{consecutive_errors}): {e}. "
+                    f"Backing off {delay}s."
+                )
+                time.sleep(delay)
+            except RequestException as e:
+                consecutive_errors += 1
+                elapsed = time.monotonic() - start_time
+                delay = min(5 * consecutive_errors, 60)
+                self.logger.error(
+                    f"Telegram polling request error after {elapsed:.2f}s (#{consecutive_errors}): {e}. "
+                    f"Backing off {delay}s."
+                )
+                time.sleep(delay)
             except Exception as e:
-                self.logger.error(f"Error in Telegram polling: {e}")
-                time.sleep(5)
+                consecutive_errors += 1
+                elapsed = time.monotonic() - start_time
+                delay = min(5 * consecutive_errors, 60)
+                self.logger.error(
+                    f"Unexpected error in Telegram polling after {elapsed:.2f}s (#{consecutive_errors}): {e}. "
+                    f"Backing off {delay}s."
+                )
+                time.sleep(delay)
