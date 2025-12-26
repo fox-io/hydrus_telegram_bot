@@ -72,7 +72,7 @@ def manage_pid_lock():
         try:
             current_pid = os.getpid()
             # Filter for python processes to avoid false positives
-            cmd = 'wmic process where "name=\'python.exe\'" get commandline,processid'
+            cmd = f'wmic process where "name=\'python.exe\' and processid!={current_pid}" get commandline,processid'
             output = subprocess.check_output(cmd, shell=True).decode('utf-8', errors='ignore')
             
             script_name = os.path.basename(__file__) # usually 'bot.py'
@@ -101,6 +101,9 @@ def manage_pid_lock():
                                 time.sleep(1)
                             except OSError:
                                 print(f"Process {found_pid} successfully terminated.")
+        except subprocess.CalledProcessError:
+            # No other python processes found
+            pass
         except Exception as e:
             print(f"Warning: Could not scan for zombie processes: {e}")
 
