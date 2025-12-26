@@ -14,6 +14,7 @@ from typing import Optional, Callable
 import functools
 import threading
 import requests
+import subprocess
 
 # Monkey patch for Windows file locking issue with RotatingFileHandler
 if os.name == 'nt':
@@ -32,6 +33,71 @@ if os.name == 'nt':
         os.rename(source, dest)
 
     logging.handlers.RotatingFileHandler.rotate = robust_rotate
+
+def manage_pid_lock():
+    """
+    Ensures only one instance of the bot is running by using a PID file.
+    If a previous instance is found running, it is terminated to release resources.
+    Also scans for zombie 'bot.py' processes on Windows to release file locks.
+    """
+    pid_file = 'bot.pid'
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, 'r') as f:
+                content = f.read().strip()
+                old_pid = int(content) if content else None
+            
+            if old_pid:
+                try:
+                    os.kill(old_pid, 0)
+                    # Process exists
+                    print(f"Previous instance (PID {old_pid}) is running. Terminating...")
+                    os.kill(old_pid, signal.SIGTERM)
+                    time.sleep(2) # Wait for handles to release
+                except OSError:
+                    # Process does not exist
+                    print(f"Found stale PID file for PID {old_pid}. Cleaning up.")
+        except (ValueError, OSError) as e:
+            print(f"Error checking PID file: {e}")
+        
+        if os.path.exists(pid_file):
+            try:
+                os.remove(pid_file)
+            except OSError:
+                pass
+
+    # Windows-specific: Scan for other python processes running this script
+    # This handles the case where no PID file exists (crash/first run) but a process is locked.
+    if os.name == 'nt':
+        try:
+            current_pid = os.getpid()
+            # Filter for python processes to avoid false positives
+            cmd = 'wmic process where "name=\'python.exe\'" get commandline,processid'
+            output = subprocess.check_output(cmd, shell=True).decode('utf-8', errors='ignore')
+            
+            script_name = os.path.basename(__file__) # usually 'bot.py'
+            
+            for line in output.splitlines():
+                if script_name in line:
+                    # Extract PID (last element in the line)
+                    parts = line.strip().rsplit(None, 1)
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        found_pid = int(parts[1])
+                        if found_pid != current_pid:
+                            print(f"Found zombie process {found_pid} running {script_name}. Terminating...")
+                            try:
+                                os.kill(found_pid, signal.SIGTERM)
+                                time.sleep(1) # Give it a moment to release handles
+                            except OSError:
+                                pass
+        except Exception as e:
+            print(f"Warning: Could not scan for zombie processes: {e}")
+
+    try:
+        with open(pid_file, 'w') as f:
+            f.write(str(os.getpid()))
+    except OSError as e:
+        print(f"Could not write PID file: {e}")
 
 class HydrusTelegramBot:
     """
@@ -127,6 +193,13 @@ class HydrusTelegramBot:
             if hasattr(self, 'telegram'):
                 self.telegram.send_message("Bot is shutting down gracefully.")
             
+            # Clean up PID file
+            if os.path.exists('bot.pid'):
+                try:
+                    os.remove('bot.pid')
+                except OSError:
+                    pass
+
             self.logger.info("Shutdown complete. Exiting...")
             sys.exit(0)
         except Exception as e:
@@ -158,6 +231,9 @@ class HydrusTelegramBot:
 
 
 if __name__ == '__main__':
+    # Ensure single instance and unlock files if necessary
+    manage_pid_lock()
+
     # Main program loop.
     app = HydrusTelegramBot()
     # Start Telegram polling in a background thread
