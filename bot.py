@@ -7,10 +7,31 @@ from modules.config_manager import ConfigManager
 import signal
 import time
 import sys
+import os
+import logging
+import logging.handlers
 from typing import Optional, Callable
 import functools
 import threading
 import requests
+
+# Monkey patch for Windows file locking issue with RotatingFileHandler
+if os.name == 'nt':
+    def robust_rotate(self, source, dest):
+        for i in range(10):
+            try:
+                if os.path.exists(dest):
+                    os.remove(dest)
+                os.rename(source, dest)
+                return
+            except (PermissionError, OSError):
+                time.sleep(0.1)
+        # Final attempt
+        if os.path.exists(dest):
+            os.remove(dest)
+        os.rename(source, dest)
+
+    logging.handlers.RotatingFileHandler.rotate = robust_rotate
 
 class HydrusTelegramBot:
     """
@@ -65,15 +86,18 @@ class HydrusTelegramBot:
         def decorator(func: Callable) -> Callable:
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
+                # Attempt to retrieve the logger from the instance (args[0])
+                logger = getattr(args[0], 'logger', None) if args else logging.getLogger('BOT')
+
                 delay = initial_delay
                 for attempt in range(max_retries):
                     try:
                         return func(*args, **kwargs)
                     except Exception as e:
                         if attempt == max_retries - 1:
-                            self.logger.error(f"Operation failed after {max_retries} attempts: {e}")
+                            if logger: logger.error(f"Operation failed after {max_retries} attempts: {e}")
                             raise
-                        self.logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
+                        if logger: logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
                         time.sleep(delay)
                         delay = min(delay * 2, max_delay)
                 return None
