@@ -90,6 +90,17 @@ def manage_pid_lock():
                                 time.sleep(1) # Give it a moment to release handles
                             except OSError:
                                 pass
+
+                            # Verify if process is still running and force kill if needed
+                            try:
+                                os.kill(found_pid, 0)
+                                print(f"Process {found_pid} still running. Forcing exit...")
+                                subprocess.run(['taskkill', '/F', '/PID', str(found_pid)], 
+                                             stdout=subprocess.DEVNULL, 
+                                             stderr=subprocess.DEVNULL)
+                                time.sleep(1)
+                            except OSError:
+                                print(f"Process {found_pid} successfully terminated.")
         except Exception as e:
             print(f"Warning: Could not scan for zombie processes: {e}")
 
