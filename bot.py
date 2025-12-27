@@ -15,6 +15,8 @@ import functools
 import threading
 import requests
 import subprocess
+import io
+import csv
 
 # Monkey patch for Windows file locking issue with RotatingFileHandler
 if os.name == 'nt':
@@ -71,38 +73,74 @@ def manage_pid_lock():
     if os.name == 'nt':
         try:
             current_pid = os.getpid()
-            # Filter for python processes to avoid false positives
-            cmd = f'wmic process where "name=\'python.exe\' and processid!={current_pid}" get commandline,processid'
-            output = subprocess.check_output(cmd, shell=True).decode('utf-8', errors='ignore')
-            
-            script_name = os.path.basename(__file__) # usually 'bot.py'
-            
-            for line in output.splitlines():
-                if script_name in line:
-                    # Extract PID (last element in the line)
-                    parts = line.strip().rsplit(None, 1)
-                    if len(parts) >= 2 and parts[1].isdigit():
-                        found_pid = int(parts[1])
-                        if found_pid != current_pid:
-                            print(f"Found zombie process {found_pid} running {script_name}. Terminating...")
-                            try:
-                                os.kill(found_pid, signal.SIGTERM)
-                                time.sleep(1) # Give it a moment to release handles
-                            except OSError:
-                                pass
+            # os.getppid() is available on Windows in Python 3.2+
+            current_ppid = os.getppid() if hasattr(os, 'getppid') else None
 
-                            # Verify if process is still running and force kill if needed
-                            try:
-                                os.kill(found_pid, 0)
-                                print(f"Process {found_pid} still running. Forcing exit...")
-                                subprocess.run(['taskkill', '/F', '/PID', str(found_pid)], 
-                                             stdout=subprocess.DEVNULL, 
-                                             stderr=subprocess.DEVNULL)
-                                time.sleep(1)
-                            except OSError:
-                                print(f"Process {found_pid} successfully terminated.")
+            # Use CSV format for easier and more robust parsing
+            cmd = 'wmic process where "name=\'python.exe\'" get commandline,processid,parentprocessid /format:csv'
+            output = subprocess.check_output(cmd, shell=True, text=True, errors='ignore')
+
+            script_name = os.path.basename(__file__)  # e.g., 'bot.py'
+            
+            # Use io.StringIO to treat the output string as a file for the csv module
+            # Filter out empty lines that wmic might output
+            reader = csv.reader(filter(str.strip, io.StringIO(output)))
+            
+            try:
+                header = next(reader)
+            except StopIteration:
+                # WMIC returned no output
+                return
+
+            # Find column indices from header. Expected: Node,CommandLine,ParentProcessId,ProcessId
+            try:
+                cmd_idx = header.index("CommandLine")
+                pid_idx = header.index("ProcessId")
+                ppid_idx = header.index("ParentProcessId")
+            except ValueError as e:
+                print(f"Warning: Could not find expected column in wmic output: {e}")
+                return
+
+            for row in reader:
+                if not row or len(row) <= max(cmd_idx, pid_idx, ppid_idx):
+                    continue
+                
+                command_line = row[cmd_idx]
+                
+                if script_name not in command_line:
+                    continue
+
+                try:
+                    found_pid = int(row[pid_idx])
+
+                    # Ignore myself and my parent process to prevent terminating the wrong process
+                    if found_pid == current_pid or (current_ppid and found_pid == current_ppid):
+                        continue
+                    
+                    print(f"Found zombie process {found_pid} running {script_name}. Terminating...")
+                    try:
+                        os.kill(found_pid, signal.SIGTERM)
+                        time.sleep(1)
+                    except OSError:
+                        pass  # Process may have already exited
+
+                    # Verify if process is still running and force kill if needed
+                    try:
+                        os.kill(found_pid, 0)
+                        print(f"Process {found_pid} still running. Forcing exit...")
+                        subprocess.run(['taskkill', '/F', '/PID', str(found_pid)],
+                                     stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL)
+                        time.sleep(1)
+                    except OSError:
+                        print(f"Process {found_pid} successfully terminated.")
+
+                except (ValueError, IndexError):
+                    # Skip rows that can't be parsed
+                    continue
+
         except subprocess.CalledProcessError:
-            # No other python processes found
+            # This can happen if no 'python.exe' processes are found
             pass
         except Exception as e:
             print(f"Warning: Could not scan for zombie processes: {e}")
