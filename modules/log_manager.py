@@ -23,7 +23,27 @@ class LogManager:
         >>> logger = LogManager.setup_logger('MODULE_NAME')
         >>> logger.info('This is an info message')
         >>> logger.error('This is an error message')
+        >>> LogManager.set_level(logging.DEBUG)
     """
+
+    @staticmethod
+    def set_level(level: int):
+        """
+        Sets the logging level for all handlers of all known loggers.
+
+        Args:
+            level (int): The logging level to set (e.g., logging.INFO, logging.DEBUG).
+        """
+        # Iterate over all known loggers in the current logging manager
+        for name in logging.Logger.manager.loggerDict:
+            logger = logging.getLogger(name)
+            for handler in logger.handlers:
+                handler.setLevel(level)
+
+        # Print to console to log the change in log levels. Use logging.INFO to do so.
+        logger = logging.getLogger('BOT')
+        logger.info(f"Log level set to {logging.getLevelName(level)}")
+
 
     @staticmethod
     def setup_logger(name: str = 'logs', out_file: str = 'logs/log.log') -> logging.Logger:
@@ -118,7 +138,7 @@ class LogManager:
         
         # Set the handler levels
         file_handler.setLevel(logging.DEBUG)
-        console_handler.setLevel(logging.DEBUG)
+        console_handler.setLevel(logging.INFO)
         
         # Set the handler formatting
         file_handler.setFormatter(formatter)

@@ -9,5 +9,6 @@
   "delay": 60,
   "timezone": 0,
   "max_image_dimension": 10000,
-  "max_file_size": 10000000
+  "max_file_size": 10000000,
+  "log_level": 20
 }

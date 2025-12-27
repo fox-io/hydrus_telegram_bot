@@ -170,7 +170,7 @@ class HydrusTelegramBot:
         self.is_shutting_down = False
 
         # Initialize our modules.
-        self.config = ConfigManager('config.json')
+        self.config = ConfigManager('config.json')        
         self.queue = QueueManager(self.config, 'queue.json')
         self.hydrus = HydrusManager(self.config, self.queue)
         self.telegram = TelegramManager(self.config)
@@ -187,6 +187,9 @@ class HydrusTelegramBot:
         signal.signal(signal.SIGTERM, self.graceful_shutdown)
 
         self.logger.debug('HydrusTelegramBot initialized.')
+
+        # Set user configured log level preference.
+        LogManager.set_level(self.config.config_data.log_level)
 
     @staticmethod
     def retry_with_backoff(max_retries: int = 3, initial_delay: float = 1.0, max_delay: float = 60.0):

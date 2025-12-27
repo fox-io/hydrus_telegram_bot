@@ -19,6 +19,9 @@ class ConfigModel(BaseModel):
         admins (list[int]): List of Telegram user IDs with admin privileges.
         delay (int): The delay between updates in minutes.
         timezone (int): The timezone offset in hours from UTC.
+        log_level (int): The logging level for the bot. uses 10/20/30/40/50 for DEBUG/INFO/WARNING/ERROR/CRITICAL
+        
+
 
     Example:
         >>> config = ConfigModel(
@@ -32,7 +35,8 @@ class ConfigModel(BaseModel):
         ...     delay=60,
         ...     timezone=0,
         ...     max_image_dimension=10000,
-        ...     max_file_size=10000000
+        ...     max_file_size=10000000,
+                log_level = 20
         ... )
     """
 
@@ -47,6 +51,8 @@ class ConfigModel(BaseModel):
     timezone: int = Field(..., title='Timezone', description='The timezone offset in hours.')
     max_image_dimension: int = Field(..., title='Max Image Dimension', description='The maximum dimension of an image in pixels.')
     max_file_size: int = Field(..., title='Max File Size', description='The maximum size of a file in bytes.')
+    log_level: int = Field(..., title='Log Level', description='The logging level for the bot.')
+
 
 class ConfigManager:
     """
