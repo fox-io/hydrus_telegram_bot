@@ -280,33 +280,54 @@ class TelegramManager:
 
     def send_image(self, api_call, image, path):
         """
-        Sends an image to a Telegram bot.
+        Sends an image to a Telegram bot with retry logic.
 
         Args:
             api_call (str): The API call to make.
             image (dict): The image data to send.
             path (str): The path to the image file.
 
-        Raises:
-            requests.exceptions.RequestException: Could not communicate with the Telegram bot.
+        Returns:
+            bool: True if the image was sent successfully, False otherwise.
         """
-        sent_file = None
+        max_retries = 3
+        timeouts = [10, 20, 30]
+        
+        for attempt in range(max_retries):
+            sent_file = None
+            timeout = timeouts[attempt]
+            
+            try:
+                self.logger.debug(f"Attempting to send {path} (attempt {attempt + 1}/{max_retries}, timeout={timeout}s)")
+                sent_file = requests.get(api_call, files=image, timeout=timeout)
+                
+                if sent_file.status_code != 200:
+                    self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
+                    if attempt == max_retries - 1:
+                        self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nStatus: {sent_file.status_code}")
+                        return False
+                    continue
+                
+                response_json = sent_file.json() if sent_file.headers.get('Content-Type') == 'application/json' else {}
 
-        try:
-            sent_file = requests.get(api_call, files=image, timeout=10)
-            if sent_file.status_code != 200:
-                self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
-                self.send_message(f"Image failed to send: {path}")
-                return
-            response_json = sent_file.json() if sent_file.headers.get('Content-Type') == 'application/json' else {}
-
-            if response_json.get("ok"):
-                self.logger.debug("Image sent successfully.")
-            else:
-                self.logger.error(f"{path} failed to send. Response: {response_json}")
-                self.send_message(f"Image failed to send. {path}")
-        except requests.exceptions.RequestException as e:
-            self.logger.error(f"Could not communicate with the Telegram bot: {e}")
+                if response_json.get("ok"):
+                    self.logger.debug("Image sent successfully.")
+                    return True
+                else:
+                    self.logger.error(f"{path} failed to send. Response: {response_json}")
+                    if attempt == max_retries - 1:
+                        self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nResponse: {response_json.get('description', 'Unknown error')}")
+                        return False
+                        
+            except requests.exceptions.RequestException as e:
+                self.logger.error(f"Could not communicate with the Telegram bot (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt == max_retries - 1:
+                    self.send_message(f"❌ Network error sending image after {max_retries} attempts: `{path}`\nError: {type(e).__name__}")
+                    return False
+                # Wait before retrying (exponential backoff)
+                time.sleep(2 ** attempt)
+        
+        return False
 
     def process_incoming_message(self, message: dict):
         """

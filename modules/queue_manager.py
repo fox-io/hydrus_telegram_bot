@@ -417,12 +417,15 @@ class QueueManager:
         request = self.telegram.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + '&' + message + '&parse_mode=html', False)
 
         # Post the image to Telegram.
-        self.telegram.send_image(request, telegram_file, path)
+        success = self.telegram.send_image(request, telegram_file, path)
 
         media_file.close()
         if api_method == 'sendVideo':
             thumb_file.close()
             os.remove(path + ".jpg")
 
-        # Delete the image from disk and queue.
-        self.delete_from_queue(path, random_index)
+        # Only delete the image from disk and queue if it was sent successfully.
+        if success:
+            self.delete_from_queue(path, random_index)
+        else:
+            self.logger.warning(f"Keeping {path} in queue due to send failure.")
