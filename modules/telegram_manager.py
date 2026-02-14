@@ -221,7 +221,8 @@ class TelegramManager:
         # Sauce Buttons
         sauce = self.build_caption_buttons(image['sauce']) if "sauce" in image else None
         if sauce:
-            message_markup = message_markup + '&reply_markup=' + json.dumps(sauce)
+            # URL-encode the JSON to prevent "can't parse reply keyboard markup" errors
+            message_markup = message_markup + '&reply_markup=' + urllib.parse.quote(json.dumps(sauce))
         # Caption Text
         caption_parts = []
         #     Title
