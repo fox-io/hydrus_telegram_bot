@@ -57,6 +57,12 @@ cp config/config.json.example config/config.json
 python3 bot.py
 ```
 
+- Run unit tests:
+
+```bash
+.venv/bin/python -m unittest tests.test_telegram_manager -v
+```
+
 - Logs: `logs/log.log` (rotating) and colored console output from `LogManager`.
 
 ## Debugging tips & gotchas
