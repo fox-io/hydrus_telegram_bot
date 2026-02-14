@@ -238,7 +238,7 @@ class TelegramManager:
         # Do not let captions be longer than 1024 characters (max Telegram bot limit).
         if len(caption) > 1024:
             caption = caption[:1021].rsplit('\n', 1)[0] + "..."
-        message_markup += f"&caption={caption}"
+        message_markup += f"&caption={urllib.parse.quote(caption)}"
 
         return message_markup
 
