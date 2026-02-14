@@ -298,6 +298,11 @@ class TelegramManager:
             timeout = timeouts[attempt]
             
             try:
+                # Reset file handles to beginning before each attempt to avoid "file must be non-empty" errors
+                for file_obj in image.values():
+                    if hasattr(file_obj, 'seek'):
+                        file_obj.seek(0)
+                
                 self.logger.debug(f"Attempting to send {path} (attempt {attempt + 1}/{max_retries}, timeout={timeout}s)")
                 sent_file = requests.get(api_call, files=image, timeout=timeout)
                 
