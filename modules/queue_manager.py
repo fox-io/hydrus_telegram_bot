@@ -408,7 +408,13 @@ class QueueManager:
             api_method = 'sendVideo'
         else:
             # Ensure image filesize and dimensions are compatible with Telegram API
-            self.telegram.reduce_image_size(path)
+            if not self.telegram.reduce_image_size(path):
+                self.logger.warning(f"Image {path} has invalid dimensions and cannot be sent. Removing from queue.")
+                self.telegram.send_message(
+                    f"⚠️ Image removed from queue (invalid dimensions):\n`{current_queued_image['path']}`"
+                )
+                self.delete_from_queue(path, random_index)
+                return
             media_file = open(path, 'rb')
             telegram_file = {'photo': media_file}
             api_method = 'sendPhoto'
