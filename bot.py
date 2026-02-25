@@ -13,7 +13,6 @@ import logging.handlers
 from typing import Optional, Callable
 import functools
 import threading
-import requests
 import subprocess
 import io
 import csv
