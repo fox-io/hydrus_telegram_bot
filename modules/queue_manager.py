@@ -397,39 +397,43 @@ class QueueManager:
 
         # Check if variable path ends in webm
         thumb_file = None
-        if path.endswith(".webm"):
-            # Use ffmpeg to convert webm to mp4
-            subprocess.run(["ffmpeg", "-y", "-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"], check=True)
-            # Use ffmpeg to extract thumbnail from mp4
-            subprocess.run(["ffmpeg", "-y", "-i", path + ".mp4", "-vframes", "1", path + ".jpg"], check=True)
-            thumb_file = open(path + ".jpg", 'rb')
-            media_file = open(path + ".mp4", 'rb')
-            telegram_file = {'video': media_file, 'thumbnail': thumb_file}
-            api_method = 'sendVideo'
-        else:
-            # Ensure image filesize and dimensions are compatible with Telegram API
-            if not self.telegram.reduce_image_size(path):
-                self.logger.warning(f"Image {path} has invalid dimensions and cannot be sent. Removing from queue.")
-                self.telegram.send_message(
-                    f"⚠️ Image removed from queue (invalid dimensions):\n`{current_queued_image['path']}`"
-                )
-                self.delete_from_queue(path, random_index)
-                return
-            media_file = open(path, 'rb')
-            telegram_file = {'photo': media_file}
-            api_method = 'sendPhoto'
+        media_file = None
+        try:
+            if path.endswith(".webm"):
+                # Use ffmpeg to convert webm to mp4
+                subprocess.run(["ffmpeg", "-y", "-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"], check=True)
+                # Use ffmpeg to extract thumbnail from mp4
+                subprocess.run(["ffmpeg", "-y", "-i", path + ".mp4", "-vframes", "1", path + ".jpg"], check=True)
+                thumb_file = open(path + ".jpg", 'rb')
+                media_file = open(path + ".mp4", 'rb')
+                telegram_file = {'video': media_file, 'thumbnail': thumb_file}
+                api_method = 'sendVideo'
+            else:
+                # Ensure image filesize and dimensions are compatible with Telegram API
+                if not self.telegram.reduce_image_size(path):
+                    self.logger.warning(f"Image {path} has invalid dimensions and cannot be sent. Removing from queue.")
+                    self.telegram.send_message(
+                        f"⚠️ Image removed from queue (invalid dimensions):\n`{current_queued_image['path']}`"
+                    )
+                    self.delete_from_queue(path, random_index)
+                    return
+                media_file = open(path, 'rb')
+                telegram_file = {'photo': media_file}
+                api_method = 'sendPhoto'
 
-        # Build Telegram bot API URL.
-        message = self.telegram.get_message_markup(current_queued_image)
-        request = self.telegram.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + message + '&parse_mode=html', False)
+            # Build Telegram bot API URL.
+            message = self.telegram.get_message_markup(current_queued_image)
+            request = self.telegram.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + message + '&parse_mode=html', False)
 
-        # Post the image to Telegram.
-        success = self.telegram.send_image(request, telegram_file, path)
-
-        media_file.close()
-        if api_method == 'sendVideo':
+            # Post the image to Telegram.
+            success = self.telegram.send_image(request, telegram_file, path)
+        finally:
+            if media_file is not None:
+                media_file.close()
             if thumb_file is not None:
                 thumb_file.close()
+
+        if api_method == 'sendVideo':
             os.remove(path + ".jpg")
 
         # Only delete the image from disk and queue if it was sent successfully.
