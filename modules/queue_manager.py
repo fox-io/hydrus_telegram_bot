@@ -3,7 +3,7 @@ import pathlib
 import random
 import subprocess
 import typing as t
-import urllib
+import urllib.parse
 from modules.log_manager import LogManager
 from modules.file_manager import FileManager
 
@@ -258,7 +258,7 @@ class QueueManager:
                     creator_urlencoded = creator_tag.replace(" ", "_")
                     creator_urlencoded = urllib.parse.quote(creator_urlencoded)
                     creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
-                    creator = creator is None and creator_markup or creator + "\n" + creator_markup
+                    creator = creator_markup if creator is None else creator + "\n" + creator_markup
 
                 if "title:" in tag:
                     tag = self.telegram.replace_html_entities(tag)
@@ -268,7 +268,7 @@ class QueueManager:
                     # Remove non-ASCII characters from title_name
                     title_name = ''.join(c for c in title_name if ord(c) < 128)
                     title_markup = f"{title_name}"
-                    title = title is None and title_markup or title + "\n" + title_markup
+                    title = title_markup if title is None else title + "\n" + title_markup
 
                 if "character:" in tag:
                     tag = self.telegram.replace_html_entities(tag)
@@ -278,7 +278,7 @@ class QueueManager:
                     character_urlencoded = character_tag.replace(" ", "_")
                     character_urlencoded = urllib.parse.quote(character_urlencoded)
                     character_markup = f"<a href=\"https://e621.net/posts?tags={character_urlencoded}\">{character_name}</a>"
-                    character = character is None and character_markup or character + "\n" + character_markup
+                    character = character_markup if character is None else character + "\n" + character_markup
 
             # Create sauce links.
             known_urls = metadata['metadata'][0].get('known_urls', [])
