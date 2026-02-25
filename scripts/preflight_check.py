@@ -20,14 +20,13 @@ import subprocess
 REQ_KEYS = [
     'admins', 'telegram_access_token', 'telegram_channel', 'telegram_bot_id',
     'hydrus_api_key', 'queue_tag', 'posted_tag', 'delay', 'timezone',
-    'max_image_dimension', 'max_file_size'
+    'max_image_dimension', 'max_file_size', 'log_level'
 ]
 
 PY_MODULES = [
     ('hydrus_api', 'hydrus_api'),
     ('wand.image', 'wand'),
     ('requests', 'requests'),
-    ('cv2', 'opencv-python (cv2)'),
     ('pydantic', 'pydantic'),
 ]
 
