@@ -181,30 +181,39 @@ class TelegramManager:
             path (str): The path to the image file.
 
         Returns:
-            None
+            bool: True if the image is valid or successfully resized, False otherwise.
 
         Raises:
             Exception: Could not open the image.
         """
         try:
-            img = Image(filename=path)
+            with Image(filename=path) as img:
+                # Wand can return None for unknown formats; guard before lower()
+                img_format = img.format.lower() if img.format else None
+                if img_format not in ["jpeg", "jpg", "png", "gif"]:
+                    self.logger.warning(f"Skipping resize: Unsupported format {img.format}")
+                    return False
 
-            # Wand can return None for unknown formats; guard before lower()
-            img_format = img.format.lower() if img.format else None
-            if img_format not in ["jpeg", "jpg", "png", "gif"]:
-                self.logger.warning(f"Skipping resize: Unsupported format {img.format}")
-                return
+                # Check aspect ratio
+                if img.width > 0 and img.height > 0:
+                    ratio = img.width / img.height
+                    if ratio > 20 or ratio < 0.05:
+                        self.logger.warning(f"Image aspect ratio {ratio:.2f} exceeds Telegram limit of 20:1.")
+                        return False
 
-            if img.width > self.config.max_image_dimension or img.height > self.config.max_image_dimension:
-                img.transform(resize='1024x768')
-                img.save(filename=path)
+                if img.width > self.config.max_image_dimension or img.height > self.config.max_image_dimension:
+                    img.transform(resize='1024x768')
+                    img.save(filename=path)
 
-            if os.path.getsize(path) > self.config.max_file_size:
-                size_ratio = os.path.getsize(path) / self.config.max_file_size
-                img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
-                img.save(filename=path)
+                if os.path.getsize(path) > self.config.max_file_size:
+                    size_ratio = os.path.getsize(path) / self.config.max_file_size
+                    img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
+                    img.save(filename=path)
+            
+            return True
         except Exception as e:
             self.logger.error(f"Could not open the image: {e}")
+            return False
 
     def get_message_markup(self, image):
         """
