@@ -192,17 +192,22 @@ class TelegramManager:
                 img_format = img.format.lower() if img.format else None
                 if img_format not in ["jpeg", "jpg", "png", "gif"]:
                     self.logger.warning(f"Skipping resize: Unsupported format {img.format}")
+                    return True  # Can't resize, but may still be sendable as-is
+
+                # Reject images with zero dimensions
+                if img.width == 0 or img.height == 0:
+                    self.logger.warning(f"Image has zero dimension ({img.width}x{img.height}): {path}")
                     return False
 
                 # Check aspect ratio
-                if img.width > 0 and img.height > 0:
-                    ratio = img.width / img.height
-                    if ratio > 20 or ratio < 0.05:
-                        self.logger.warning(f"Image aspect ratio {ratio:.2f} exceeds Telegram limit of 20:1.")
-                        return False
+                ratio = img.width / img.height
+                if ratio > 20 or ratio < 0.05:
+                    self.logger.warning(f"Image aspect ratio {ratio:.2f} exceeds Telegram limit of 20:1.")
+                    return False
 
                 if img.width > self.config.max_image_dimension or img.height > self.config.max_image_dimension:
-                    img.transform(resize='1024x768')
+                    scale = self.config.max_image_dimension / max(img.width, img.height)
+                    img.resize(round(img.width * scale), round(img.height * scale))
                     img.save(filename=path)
 
                 if os.path.getsize(path) > self.config.max_file_size:
