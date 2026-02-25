@@ -396,6 +396,7 @@ class QueueManager:
         channel = str(self.config.telegram_channel)
 
         # Check if variable path ends in webm
+        thumb_file = None
         if path.endswith(".webm"):
             # Use ffmpeg to convert webm to mp4
             subprocess.run(["ffmpeg", "-y", "-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"], check=True)
@@ -421,7 +422,8 @@ class QueueManager:
 
         media_file.close()
         if api_method == 'sendVideo':
-            thumb_file.close()
+            if thumb_file is not None:
+                thumb_file.close()
             os.remove(path + ".jpg")
 
         # Only delete the image from disk and queue if it was sent successfully.
