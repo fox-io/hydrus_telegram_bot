@@ -421,7 +421,7 @@ class QueueManager:
 
         # Build Telegram bot API URL.
         message = self.telegram.get_message_markup(current_queued_image)
-        request = self.telegram.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + '&' + message + '&parse_mode=html', False)
+        request = self.telegram.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + message + '&parse_mode=html', False)
 
         # Post the image to Telegram.
         success = self.telegram.send_image(request, telegram_file, path)
