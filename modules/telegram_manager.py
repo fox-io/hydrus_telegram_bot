@@ -62,6 +62,10 @@ class TelegramManager:
         self.polling_session.mount("http://", adapter)
         self.logger.debug('Telegram Module initialized.')
 
+    def _redact_token(self, text):
+        """Redacts the bot token from a string to prevent it from appearing in logs."""
+        return str(text).replace(self.token, "[REDACTED]")
+
     def build_telegram_api_url(self, method: str, payload: str, is_file: bool = False):
         """
         Constructs a Telegram API url for bot communication.
@@ -277,7 +281,7 @@ class TelegramManager:
                 if not response_json.get("ok", False):
                     self.logger.error(f"Failed to send message: {response_json}")
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"Could not communicate with Telegram: {e}")
+                self.logger.error(f"Could not communicate with Telegram: {self._redact_token(e)}")
 
     def send_message(self, message):
         """
@@ -344,7 +348,7 @@ class TelegramManager:
                         return False
                         
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"Could not communicate with the Telegram bot (attempt {attempt + 1}/{max_retries}): {e}")
+                self.logger.error(f"Could not communicate with the Telegram bot (attempt {attempt + 1}/{max_retries}): {self._redact_token(e)}")
                 if attempt == max_retries - 1:
                     self.send_message(f"❌ Network error sending image after {max_retries} attempts: `{path}`\nError: {type(e).__name__}")
                     return False
@@ -418,7 +422,7 @@ class TelegramManager:
                 elapsed = time.monotonic() - start_time
                 delay = min(5 * consecutive_errors, 60)
                 self.logger.warning(
-                    f"Telegram polling connection error after {elapsed:.2f}s (#{consecutive_errors}): {e}. "
+                    f"Telegram polling connection error after {elapsed:.2f}s (#{consecutive_errors}): {self._redact_token(e)}. "
                     f"Backing off {delay}s."
                 )
                 time.sleep(delay)
@@ -427,7 +431,7 @@ class TelegramManager:
                 elapsed = time.monotonic() - start_time
                 delay = min(5 * consecutive_errors, 60)
                 self.logger.error(
-                    f"Telegram polling request error after {elapsed:.2f}s (#{consecutive_errors}): {e}. "
+                    f"Telegram polling request error after {elapsed:.2f}s (#{consecutive_errors}): {self._redact_token(e)}. "
                     f"Backing off {delay}s."
                 )
                 time.sleep(delay)
@@ -436,7 +440,7 @@ class TelegramManager:
                 elapsed = time.monotonic() - start_time
                 delay = min(5 * consecutive_errors, 60)
                 self.logger.error(
-                    f"Unexpected error in Telegram polling after {elapsed:.2f}s (#{consecutive_errors}): {e}. "
+                    f"Unexpected error in Telegram polling after {elapsed:.2f}s (#{consecutive_errors}): {self._redact_token(e)}. "
                     f"Backing off {delay}s."
                 )
                 time.sleep(delay)
