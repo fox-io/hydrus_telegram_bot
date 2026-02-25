@@ -309,6 +309,10 @@ class TelegramManager:
                 
                 if sent_file.status_code != 200:
                     self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
+                    if 400 <= sent_file.status_code < 500:
+                        self.send_message(f"❌ Image failed to send (Client Error): `{path}`\nStatus: {sent_file.status_code}")
+                        return False
+
                     if attempt == max_retries - 1:
                         self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nStatus: {sent_file.status_code}")
                         return False
