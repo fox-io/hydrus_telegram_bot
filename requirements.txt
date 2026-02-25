@@ -4,8 +4,6 @@ charset-normalizer==3.3.2
 colorama==0.4.6
 hydrus-api==5.0.1
 idna==3.7
-numpy==2.2.1
-opencv-python==4.10.0.84
 pydantic==2.10.6
 pydantic_core==2.27.2
 requests==2.32.4
