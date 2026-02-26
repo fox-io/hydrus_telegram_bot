@@ -336,12 +336,14 @@ class QueueManager:
         """
         try:
             os.remove(path)
-            if path.endswith(".webm"):
-                os.remove(path + ".mp4")
-        except OSError as ose:
-            self.logger.error(f"Could not delete file {path + '.mp4'}: {ose}")
-        except Exception as e:
+        except OSError as e:
             self.logger.error(f"Could not delete file {path}: {e}")
+
+        if path.endswith(".webm"):
+            try:
+                os.remove(path + ".mp4")
+            except OSError as e:
+                self.logger.error(f"Could not delete file {path + '.mp4'}: {e}")
 
         try:
             self.queue_data['queue'].pop(index)
@@ -376,17 +378,13 @@ class QueueManager:
         self.logger.debug("Processing next image in queue.")
         self.load_queue()
 
-        try:
-            if not self.queue_data or "queue" not in self.queue_data:
-                self.logger.error("Loaded queue data is missing or invalid.")
-                return
-
-            if not self.queue_data["queue"]:
-                self.logger.warning("Queue is empty.")
-                self.telegram.send_message("Queue is empty.")
-                return
-        except Exception as e:
-            self.logger.error(f"An error occurred while processing the queue: {e}")
+        if not self.queue_data or "queue" not in self.queue_data:
+            self.logger.error("Queue data is missing or invalid.")
+            return
+        if not self.queue_data["queue"]:
+            self.logger.warning("Queue is empty.")
+            self.telegram.send_message("Queue is empty.")
+            return
 
         # Select a random image from the queue
         random_index = random.randint(0, len(self.queue_data['queue']) - 1)
