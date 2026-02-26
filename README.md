@@ -60,7 +60,7 @@ python3 bot.py
 - Run unit tests:
 
 ```bash
-.venv/bin/python -m unittest tests.test_telegram_manager -v
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 - Logs: `logs/log.log` (rotating) and colored console output from `LogManager`.
