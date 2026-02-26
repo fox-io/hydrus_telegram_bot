@@ -36,7 +36,7 @@ Currently supports image formats such as jpg and png. webp is partially supporte
 - Hydrus: enable Hydrus Client API and provide `hydrus_api_key` in `config/config.json`.
 - Telegram: `telegram_access_token`, `telegram_channel`, and `admins` are required.
 - Binary deps: ImageMagick (Wand) for image transforms and `ffmpeg` for webm→mp4 conversion. Ensure they are on `PATH` for the environment running `bot.py`.
-- Python packages: listed in `requirements.txt` (install via `pip install -r requirements.txt`). Key packages: `hydrus-api`, `Wand`, `requests`, `opencv-python` (used for media handling).
+- Python packages: listed in `requirements.txt` (install via `pip install -r requirements.txt`). Key packages: `hydrus-api`, `Wand`, `requests`, `pydantic`.
 
 ## Developer workflows & common commands
 
