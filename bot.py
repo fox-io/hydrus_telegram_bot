@@ -275,11 +275,12 @@ class HydrusTelegramBot:
             self.queue.load_queue()
             self.hydrus.get_new_hydrus_files()
             self.queue.process_queue()
-            self.scheduler.schedule_update(self.on_scheduler)
         except Exception as e:
             self.logger.error(f"An error occurred during the update process: {e}")
-            # Don't re-raise the exception to allow the scheduler to continue
-            # The retry decorator will handle retrying the operation
+            raise # Re-raise so retry_with_backoff can handle the retry logic
+        finally:
+            # Always schedule the next run, even after failures.
+            self.scheduler.schedule_update(self.on_scheduler)
 
 
 
