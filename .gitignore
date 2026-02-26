@@ -43,13 +43,6 @@ ehthumbs.db
 Thumbs.db
 start.bat
 
-.DS_Store
-._*
-.Spotlight-V100
-.Trashes
-# Windows
-
-
 # ----- Python artifacts -----
 __pycache__/
 **/__pycache__/
