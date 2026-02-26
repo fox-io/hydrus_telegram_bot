@@ -98,12 +98,12 @@ class TelegramManager:
             str: A comma-separated list of source URLs.
         """
         # Return source URLs.
-        sauce = ''
+        urls = []
         for url in known_urls:
             # Skip direct links.
             if url.startswith("https://www.") or url.startswith("https://e621.net/posts"):
-                sauce = sauce + url + ','
-        return sauce
+                urls.append(url)
+        return ", ".join(urls)
 
     def replace_html_entities(self, tag: str):
         """
