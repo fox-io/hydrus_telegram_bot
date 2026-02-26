@@ -27,8 +27,6 @@ class HydrusManager:
         ...     files = hydrus.get_new_hydrus_files()
     """
 
-    queue_data = []
-    queue_loaded = False
     hydrus_service_key = {
         "my_tags": "6c6f63616c2074616773",
         "downloader_tags": "646f776e6c6f616465722074616773"
@@ -57,6 +55,8 @@ class HydrusManager:
         self.hydrus_client = hydrus_api.Client(self.config.hydrus_api_key)
         self.queue = queue
         self.queue_file = self.queue.queue_file
+        self.queue_data = []
+        self.queue_loaded = False
         self.logger.debug('Hydrus Module initialized.')
 
     def modify_tag(self, file_id: t.Union[int, list], tag: str, action: hydrus_api.TagAction, service: str):
@@ -122,7 +122,7 @@ class HydrusManager:
         else:
             return True
 
-    def get_metadata(self, id: int) -> dict:
+    def get_metadata(self, id: int) -> t.Optional[dict]:
         """
         Retrieves metadata for a file from Hydrus Network.
 
@@ -137,7 +137,7 @@ class HydrusManager:
             and known URLs.
         """
         try:
-            return self.hydrus_client.get_file_metadata(file_ids=id)
+            return self.hydrus_client.get_file_metadata(file_ids=[id])
         except Exception as e:
             self.logger.error(f"An error occurred while getting metadata: {e}")
             return None
