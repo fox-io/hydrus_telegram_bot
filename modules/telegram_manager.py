@@ -135,6 +135,7 @@ class TelegramManager:
             url_column = 0
             url_row = -1
             for line in caption.split(','):
+                line = line.strip()
                 if 'http' in line:
                     link = urlparse(line)
                     skip_link = False
