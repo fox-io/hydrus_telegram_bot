@@ -323,7 +323,7 @@ class TelegramManager:
                         file_obj.seek(0)
                 
                 self.logger.debug(f"Attempting to send {path} (attempt {attempt + 1}/{max_retries}, timeout={timeout}s)")
-                sent_file = requests.get(api_call, files=image, timeout=timeout)
+                sent_file = requests.post(api_call, files=image, timeout=timeout)
                 
                 if sent_file.status_code != 200:
                     self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
