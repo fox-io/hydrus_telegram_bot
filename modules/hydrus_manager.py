@@ -185,7 +185,7 @@ class HydrusManager:
             return
         for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
             for file_id in file_ids:
-                num_images += self.queue.save_image_to_queue([file_id])
+                num_images += self.queue.save_image_to_queue(file_id)
                 self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "downloader_tags")
                 self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "my_tags")
                 self.modify_tag(file_id, self.config.posted_tag, hydrus_api.TagAction.ADD, "my_tags")
