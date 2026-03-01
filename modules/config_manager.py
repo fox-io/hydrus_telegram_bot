@@ -118,8 +118,8 @@ class ConfigManager:
         except (FileNotFoundError, json.JSONDecodeError):
             self.logger.error("Required file 'config.json' is missing or corrupted. Create a copy of config/config.json.example as config/config.json and provide values matching your environment.")
             # Cannot continue.
-            exit(1)
+            sys.exit(1)
         except ValidationError as e:
             self.logger.error(f"Configuration validation error: {e}")
             # Cannot continue.
-            exit(1)
+            sys.exit(1)
