@@ -45,5 +45,4 @@ start.bat
 
 # ----- Python artifacts -----
 __pycache__/
-**/__pycache__/
 *.py[cod]
