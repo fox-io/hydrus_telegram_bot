@@ -53,7 +53,7 @@ class FileManager:
             >>> file_manager.operation('data.json', 'w', {'key': 'value'})
         """
         try:
-            with open(filename, mode) as file:
+            with open(filename, mode, encoding='utf-8') as file:
                 if 'r' in mode:
                     self.logger.debug(f"Reading json data from {filename}.")
                     return json.load(file)
@@ -64,7 +64,7 @@ class FileManager:
             if 'r' in mode:
                 self.logger.warning(f"{filename} missing or corrupted. {e}")
                 if payload is not None:
-                    with open(filename, 'w+') as file:
+                    with open(filename, 'w+', encoding='utf-8') as file:
                         json.dump(payload, file)
                         self.logger.info(f"Created new {filename}.")
                 return payload
