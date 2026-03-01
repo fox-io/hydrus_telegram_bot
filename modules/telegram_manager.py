@@ -210,11 +210,14 @@ class TelegramManager:
                     self.logger.warning(f"Image aspect ratio {ratio:.2f} exceeds Telegram limit of 20:1.")
                     return False
 
+                # Pass 1: Resize if dimensions exceed Telegram limits
                 if img.width > self.config.max_image_dimension or img.height > self.config.max_image_dimension:
                     scale = self.config.max_image_dimension / max(img.width, img.height)
                     img.resize(round(img.width * scale), round(img.height * scale))
                     img.save(filename=path)
 
+                # Pass 2: Scale down further if file size exceeds Telegram limits. Uses os.path.getsize() to
+                # check file size even if the pass 1 resized it.
                 if os.path.getsize(path) > self.config.max_file_size:
                     size_ratio = os.path.getsize(path) / self.config.max_file_size
                     img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
