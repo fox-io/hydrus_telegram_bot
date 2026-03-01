@@ -267,7 +267,6 @@ class HydrusTelegramBot:
             self._run_update()
         except Exception as e:
             self.logger.error(f"An error occurred during the update process: {e}")
-            raise # Re-raise so retry_with_backoff can handle the retry logic
         finally:
             if not self.is_shutting_down:
                 # Always schedule the next run, even after failures.
