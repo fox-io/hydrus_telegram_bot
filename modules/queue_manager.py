@@ -393,9 +393,10 @@ class QueueManager:
 
         channel = str(self.config.telegram_channel)
 
-        # Check if variable path ends in webm
+        # Determine media type and prepare files for sending.
         thumb_file = None
         media_file = None
+        video_extensions = (".webm", ".mp4")
         try:
             if path.endswith(".webm"):
                 # Use ffmpeg to convert webm to mp4
@@ -404,6 +405,13 @@ class QueueManager:
                 subprocess.run(["ffmpeg", "-y", "-i", path + ".mp4", "-vframes", "1", path + ".jpg"], check=True)
                 thumb_file = open(path + ".jpg", 'rb')
                 media_file = open(path + ".mp4", 'rb')
+                telegram_file = {'video': media_file, 'thumbnail': thumb_file}
+                api_method = 'sendVideo'
+            elif path.endswith(".mp4"):
+                # Native mp4 file. Extract thumbnail and send as video.
+                subprocess.run(["ffmpeg", "-y", "-i", path, "-vframes", "1", path + ".jpg"], check=True)
+                thumb_file = open(path + ".jpg", 'rb')
+                media_file = open(path, 'rb')
                 telegram_file = {'video': media_file, 'thumbnail': thumb_file}
                 api_method = 'sendVideo'
             else:
@@ -431,7 +439,7 @@ class QueueManager:
             if thumb_file is not None:
                 thumb_file.close()
 
-        if api_method == 'sendVideo':
+        if api_method == 'sendVideo' and os.path.exists(path + ".jpg"):
             os.remove(path + ".jpg")
 
         # Only delete the image from disk and queue if it was sent successfully.
