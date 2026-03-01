@@ -45,7 +45,7 @@ def check_config():
         print(f"FAIL: Missing config file at {path}. Copy config/config.json.example and edit it.")
         return False
     try:
-    with open(path, encoding='utf-8') as f:
+        with open(path, encoding='utf-8') as f:
             cfg = json.load(f)
     except Exception as e:
         print(f"FAIL: Could not parse {path}: {e}")
