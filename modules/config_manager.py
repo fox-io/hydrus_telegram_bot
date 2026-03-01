@@ -113,7 +113,7 @@ class ConfigManager:
             relative to the current working directory.
         """
         try:
-            with open('config/' + self.config_file) as config:
+            with open('config/' + self.config_file, encoding='utf-8') as config:
                 config_data = json.load(config)
                 return ConfigModel(**config_data)
         except (FileNotFoundError, json.JSONDecodeError):
