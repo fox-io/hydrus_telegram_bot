@@ -54,8 +54,6 @@ class HydrusManager:
         self.hydrus_client = hydrus_api.Client(self.config.hydrus_api_key)
         self.queue = queue
         self.queue_file = self.queue.queue_file
-        self.queue_data = []
-        self.queue_loaded = False
         self.logger.debug('Hydrus Module initialized.')
 
     def modify_tag(self, file_id: t.Union[int, list], tag: str, action: hydrus_api.TagAction, service: str):
