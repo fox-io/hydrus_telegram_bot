@@ -88,6 +88,7 @@ class QueueManager:
         self.config = config.config_data
         self.files = FileManager()
         self.queue_file = 'queue/' + queue_file
+        self.queue_data = {"queue": []}
         self.queue_loaded = False
         self.logger.debug('Queue Module initialized.')
 
@@ -396,7 +397,6 @@ class QueueManager:
         # Determine media type and prepare files for sending.
         thumb_file = None
         media_file = None
-        video_extensions = (".webm", ".mp4")
         try:
             if path.endswith(".webm"):
                 # Use ffmpeg to convert webm to mp4
