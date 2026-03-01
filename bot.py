@@ -245,6 +245,14 @@ class HydrusTelegramBot:
             sys.exit(1)
 
     @retry_with_backoff(max_retries=3, initial_delay=1.0, max_delay=60.0)
+    def _run_update(self):
+        """ Runs a single update cycle with retry logic. """
+        if self.is_shutting_down:
+            return
+        self.queue.load_queue()
+        self.hydrus.get_new_hydrus_files()
+        self.queue.process_queue()
+
     def on_scheduler(self):
         """
         Processes scheduled updates, looping indefinitely.
@@ -256,17 +264,14 @@ class HydrusTelegramBot:
             return
 
         try:
-            self.queue.load_queue()
-            self.hydrus.get_new_hydrus_files()
-            self.queue.process_queue()
+            self._run_update()
         except Exception as e:
             self.logger.error(f"An error occurred during the update process: {e}")
             raise # Re-raise so retry_with_backoff can handle the retry logic
         finally:
-            # Always schedule the next run, even after failures.
-            self.scheduler.schedule_update(self.on_scheduler)
-
-
+            if not self.is_shutting_down:
+                # Always schedule the next run, even after failures.
+                self.scheduler.schedule_update(self.on_scheduler)
 
 
 if __name__ == '__main__':
