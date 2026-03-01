@@ -2,7 +2,6 @@ import os
 import pathlib
 import random
 import subprocess
-import typing as t
 import urllib.parse
 from modules.log_manager import LogManager
 from modules.file_manager import FileManager
