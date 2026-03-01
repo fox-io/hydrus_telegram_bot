@@ -250,9 +250,9 @@ class QueueManager:
             character = None
 
             for tag in tags:
-                if "creator:" in tag:
+                if tag.startswith("creator:"):
                     tag = self.telegram.replace_html_entities(tag)
-                    creator_tag = tag.split(":")[1]
+                    creator_tag = tag.split(":", 1)[1]
                     creator_name = creator_tag.replace(" (artist)", "")
                     creator_name = self._proper_title(creator_name)
                     creator_urlencoded = creator_tag.replace(" ", "_")
@@ -260,9 +260,9 @@ class QueueManager:
                     creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
                     creator = creator_markup if creator is None else creator + "\n" + creator_markup
 
-                if "title:" in tag:
+                if tag.startswith("title:"):
                     tag = self.telegram.replace_html_entities(tag)
-                    title_tag = tag.split(":")[1]
+                    title_tag = tag.split(":", 1)[1]
                     title_name = title_tag.replace(" (series)", "")
                     title_name = self._proper_title(title_name)
                     # Remove non-ASCII characters from title_name
@@ -270,9 +270,9 @@ class QueueManager:
                     title_markup = f"{title_name}"
                     title = title_markup if title is None else title + "\n" + title_markup
 
-                if "character:" in tag:
+                if tag.startswith("character:"):
                     tag = self.telegram.replace_html_entities(tag)
-                    character_tag = tag.split(":")[1]
+                    character_tag = tag.split(":", 1)[1]
                     character_name = character_tag.replace(" (character)", "")
                     character_name = self._proper_title(character_name)
                     character_urlencoded = character_tag.replace(" ", "_")
