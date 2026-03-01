@@ -36,7 +36,7 @@ class ConfigModel(BaseModel):
         ...     timezone=0,
         ...     max_image_dimension=10000,
         ...     max_file_size=10000000,
-                log_level = 20
+        ...     log_level=20
         ... )
     """
 
