@@ -1,6 +1,5 @@
 import requests
 from modules.log_manager import LogManager
-from modules.file_manager import FileManager
 import hydrus_api
 import hydrus_api.utils
 import typing as t
