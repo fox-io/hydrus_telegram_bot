@@ -28,7 +28,7 @@ class TelegramManager:
         build_caption_buttons(caption): Assembles buttons to display under the Telegram post.
         reduce_image_size(path): Telegram has limits on image file size and dimensions. We resize large things here.
         get_message_markup(image): Build the message markup for the Telegram post.
-        api_request(api_call, payload, image, path): Send messages or images to Telegram bot.
+        api_request(api_call, payload): Send messages or images to Telegram bot.
         send_message(message): Sends a message to all admin users.
         send_image(api_call, image, path): Attempt to send the image to our Telegram bot.
     """
