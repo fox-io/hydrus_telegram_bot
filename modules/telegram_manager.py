@@ -261,15 +261,13 @@ class TelegramManager:
 
         return message_markup
 
-    def api_request(self, api_call, payload, image, path):
+    def api_request(self, api_call, payload):
         """
         Send messages or images to Telegram bot.
 
         Args:
             api_call (str): The API call to make.
             payload (dict): The payload to send to the API.
-            image (dict): The image data to send.
-            path (str): The path to the image file.
 
         Raises:
             requests.exceptions.RequestException: Could not communicate with Telegram.
@@ -296,7 +294,7 @@ class TelegramManager:
 
         for admin in self.config.admins:
             payload = {'chat_id': str(admin), 'text': message, 'parse_mode': 'Markdown'}
-            self.api_request('sendMessage', payload, None, None)
+            self.api_request('sendMessage', payload)
 
     def send_image(self, api_call, image, path):
         """
