@@ -200,7 +200,7 @@ class QueueManager:
 
             # Save image from Hydrus to queue folder. Creates filename based on hash.
             filename = str(f"{file_info['hash']}{file_info['ext']}")
-            path = t.cast(pathlib.Path, pathlib.Path.cwd()) / "queue" / filename
+            path = pathlib.Path.cwd() / "queue" / filename
             try:
                 file_content = self.hydrus.get_file_content(file_info['file_id'])
                 if not file_content:
