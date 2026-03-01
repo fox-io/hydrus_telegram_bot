@@ -9,7 +9,6 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import ReadTimeout, ConnectionError, RequestException
 from urllib3.util.retry import Retry
 from modules.log_manager import LogManager
-from modules.file_manager import FileManager
 import json
 import time
 
@@ -45,7 +44,6 @@ class TelegramManager:
         """
         self.logger = LogManager.setup_logger('TEL')
         self.config = config.config_data
-        self.files = FileManager()
         if not self.config.telegram_access_token:
             self.logger.error('No Telegram token was provided.')
             return
@@ -340,7 +338,8 @@ class TelegramManager:
                         return False
                     continue
                 
-                response_json = sent_file.json() if sent_file.headers.get('Content-Type') == 'application/json' else {}
+                content_type = sent_file.headers.get('Content-Type', '')
+                response_json = sent_file.json() if 'application/json' in content_type else {}
 
                 if response_json.get("ok"):
                     self.logger.debug("Image sent successfully.")
