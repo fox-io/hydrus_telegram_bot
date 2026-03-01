@@ -19,7 +19,6 @@ class TelegramManager:
     Attributes:
         logger (Logger): The logger for the TelegramManager.
         config (ConfigManager): The configuration settings for the bot.
-        files (FileManager): The file manager for the bot.
         token (str): The Telegram bot access token.
 
     Methods:
