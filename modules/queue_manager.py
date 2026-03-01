@@ -261,7 +261,7 @@ class QueueManager:
                     creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
                     creator = creator_markup if creator is None else creator + "\n" + creator_markup
 
-                if tag.startswith("title:"):
+                elif tag.startswith("title:"):
                     tag = self.telegram.replace_html_entities(tag)
                     title_tag = tag.split(":", 1)[1]
                     title_name = title_tag.replace(" (series)", "")
@@ -271,7 +271,7 @@ class QueueManager:
                     title_markup = f"{title_name}"
                     title = title_markup if title is None else title + "\n" + title_markup
 
-                if tag.startswith("character:"):
+                elif tag.startswith("character:"):
                     tag = self.telegram.replace_html_entities(tag)
                     character_tag = tag.split(":", 1)[1]
                     character_name = character_tag.replace(" (character)", "")
