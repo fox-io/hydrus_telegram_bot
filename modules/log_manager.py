@@ -2,6 +2,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from colorama import init, Fore, Style
 import os
+import sys
 
 # Initialize colorama
 init(autoreset=True)
@@ -134,7 +135,6 @@ class LogManager:
         )
         
         # Create the handlers
-        import sys
         console_handler = logging.StreamHandler(sys.stdout)
         
         # Set the handler levels
