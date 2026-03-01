@@ -123,7 +123,8 @@ class LogManager:
         file_handler = RotatingFileHandler(
             out_file,
             maxBytes=5*1024*1024,  # 5MB
-            backupCount=3
+            backupCount=3,
+            encoding='utf-8'
         )
         
         # Set the message formatting
