@@ -20,8 +20,6 @@ class ConfigModel(BaseModel):
         delay (int): The delay between updates in minutes.
         timezone (int): The timezone offset in hours from UTC.
         log_level (int): The logging level for the bot. uses 10/20/30/40/50 for DEBUG/INFO/WARNING/ERROR/CRITICAL
-        
-
 
     Example:
         >>> config = ConfigModel(
