@@ -241,7 +241,9 @@ class QueueManager:
                 
                 # Check if storage_tags has the expected structure
                 if not storage_tags or '0' not in storage_tags:
-                    self.logger.warning(f"No storage tags found for file_id {file_id} or missing '0' key. Skipping tag processing.")
+                    self.logger.warning(f"No storage tags found for file_id {file_id} or missing '0' key. "
+                                        f"(available keys: {list(storage_tags.keys()) if storage_tags else 'none'}). "
+                                        f"File: {filename}. Skipping tag processing.")
                     tags = []
                 else:
                     tags = storage_tags['0']
