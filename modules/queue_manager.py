@@ -315,8 +315,9 @@ class QueueManager:
 
             # Add image to queue if not present.
             if not self.image_is_queued(filename):
-                # Assemble image data into a dict
-                image_data = {'path': filename}
+                # Assemble image data into a dict. The Hydrus file id is kept so the
+                # file can be tagged back in Hydrus if it later fails to send.
+                image_data = {'path': filename, 'file_id': file_info['file_id']}
                 if sauce is not None and sauce != "":
                     image_data.update({'sauce': sauce})
 
@@ -385,23 +386,75 @@ class QueueManager:
         # Send queue size update to terminal.
         self.logger.info("Queued images remaining: " + str(len(self.queue_data['queue'])))
 
+    def record_send_failure(self, path: str, index: int, entry: dict):
+        """
+        Records a failed send attempt and drops the file once it runs out of attempts.
+
+        Files that fail to send stay in the queue and are redrawn at random on later
+        runs. Without a cap, a file that can never be sent (unsupported format, a
+        conversion ffmpeg cannot do, a file missing from disk) stays in the queue
+        permanently, and those files accumulate until they crowd out the good ones.
+
+        Args:
+            path (str): The path to the media file, relative to the working directory.
+            index (int): The index of the entry in the queue.
+            entry (dict): The queue entry that failed to send.
+
+        Note:
+            On the final failure the file is removed from the queue and disk, and
+            tagged in Hydrus with the configured failed tag so it can be reviewed
+            and requeued once the underlying problem is fixed.
+        """
+        failures = entry.get('failures', 0) + 1
+        entry['failures'] = failures
+        limit = self.config.max_send_failures
+
+        if failures < limit:
+            self.logger.warning(f"Keeping {path} in queue after send failure {failures}/{limit}.")
+            self.queue_loaded = False
+            self.save_queue()
+            return
+
+        self.logger.error(f"Giving up on {path} after {failures} failed attempts. Removing from queue.")
+
+        tagged = self.hydrus.mark_file_failed(
+            file_id=entry.get('file_id'),
+            file_hash=pathlib.Path(entry['path']).stem,
+        )
+
+        if tagged:
+            self.telegram.send_message(
+                f"🚫 Gave up on `{entry['path']}` after {failures} failed attempts.\n"
+                f"Tagged `{self.config.failed_tag}` in Hydrus for review."
+            )
+        else:
+            self.telegram.send_message(
+                f"🚫 Gave up on `{entry['path']}` after {failures} failed attempts.\n"
+                f"Could not tag it in Hydrus - check the log."
+            )
+
+        # delete_from_queue saves the queue, so no separate save is needed here.
+        self.delete_from_queue(path, index)
+
     def process_queue(self):
         """
-        Processes the queue by posting an image to Telegram.
+        Posts one image to Telegram, trying more of the queue if the first choice fails.
 
         This method:
         1. Loads the queue data
-        2. Selects a random image
-        3. Converts webm to mp4 if needed
-        4. Posts the image to Telegram
-        5. Deletes the image from queue and disk
-
-        Raises:
-            Exception: If an error occurs while processing the queue.
+        2. Selects a random image and tries to post it
+        3. On failure, records the failure and tries a different image
+        4. Stops as soon as something posts, or when it runs out of attempts
 
         Note:
-            The method handles both image and video files, with special
-            processing for webm files including thumbnail generation.
+            Every scheduled run should result in a post. A file that cannot be sent
+            must not consume the run, so failures move on to another file rather than
+            waiting for the next scheduled run.
+
+            Each file is tried at most once per run, so a file still accrues one
+            failure per run and is dropped after max_send_failures runs. At most
+            max_post_attempts files are tried before the run gives up, which bounds
+            the work done when a large part of the queue is unsendable.
         """
         # Post next image to Telegram and remove it from the queue.
         self.logger.debug("Processing next image in queue.")
@@ -415,16 +468,58 @@ class QueueManager:
             self.telegram.send_message("Queue is empty.")
             return
 
-        # Select a random image from the queue
-        random_index = random.randint(0, len(self.queue_data['queue']) - 1)
-        current_queued_image = self.queue_data['queue'][random_index]
-        path = "queue/" + current_queued_image['path']
+        # Track by path rather than index: a failed file may be dropped from the
+        # queue, which shifts every index after it.
+        attempted = set()
+        max_attempts = self.config.max_post_attempts
 
+        for attempt in range(1, max_attempts + 1):
+            candidates = [i for i, entry in enumerate(self.queue_data['queue'])
+                          if entry['path'] not in attempted]
+            if not candidates:
+                self.logger.warning("No untried files left in the queue this run.")
+                break
+
+            index = random.choice(candidates)
+            entry = self.queue_data['queue'][index]
+            attempted.add(entry['path'])
+
+            if attempt > 1:
+                self.logger.info(f"Previous file failed. Trying another (attempt {attempt}/{max_attempts}).")
+
+            if self._attempt_post(entry, index):
+                return
+
+        self.logger.error(f"Nothing could be posted this run after trying {len(attempted)} file(s).")
+        self.telegram.send_message(
+            f"⚠️ Nothing could be posted this run. Tried {len(attempted)} file(s) - check the log."
+        )
+
+    def _attempt_post(self, entry: dict, index: int) -> bool:
+        """
+        Attempts to post a single queued file to Telegram.
+
+        Args:
+            entry (dict): The queue entry to post.
+            index (int): The index of the entry in the queue.
+
+        Returns:
+            bool: True if the file was posted, False otherwise.
+
+        Note:
+            On success the file is removed from the queue and disk. On failure the
+            failure is recorded against the entry, which may drop it from the queue.
+            Either way this returns and lets the caller decide whether to try another
+            file, so a bad file never consumes the whole run.
+        """
+        path = "queue/" + entry['path']
         channel = str(self.config.telegram_channel)
 
         # Determine media type and prepare files for sending.
         thumb_file = None
         media_file = None
+        api_method = None
+        success = False
         try:
             if path.endswith(".webm"):
                 # Use ffmpeg to convert webm to mp4
@@ -447,20 +542,26 @@ class QueueManager:
                 if not self.telegram.reduce_image_size(path):
                     self.logger.warning(f"Image {path} has invalid dimensions and cannot be sent. Removing from queue.")
                     self.telegram.send_message(
-                        f"⚠️ Image removed from queue (invalid dimensions):\n`{current_queued_image['path']}`"
+                        f"⚠️ Image removed from queue (invalid dimensions):\n`{entry['path']}`"
                     )
-                    self.delete_from_queue(path, random_index)
-                    return
+                    self.delete_from_queue(path, index)
+                    return False
                 media_file = open(path, 'rb')
                 telegram_file = {'photo': media_file}
                 api_method = 'sendPhoto'
 
             # Build Telegram bot API URL.
-            message = self.telegram.get_message_markup(current_queued_image)
+            message = self.telegram.get_message_markup(entry)
             request = self.telegram.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + message + '&parse_mode=html', False)
 
             # Post the image to Telegram.
             success = self.telegram.send_image(request, telegram_file, path)
+        except (OSError, subprocess.CalledProcessError) as e:
+            # A missing file or a failed ffmpeg conversion is a property of this file,
+            # not of the run. Counting it as a send failure lets an unusable file be
+            # dropped eventually instead of being redrawn from the queue forever.
+            self.logger.error(f"Could not prepare {path} for sending: {e}")
+            success = False
         finally:
             if media_file is not None:
                 media_file.close()
@@ -472,6 +573,8 @@ class QueueManager:
 
         # Only delete the image from disk and queue if it was sent successfully.
         if success:
-            self.delete_from_queue(path, random_index)
-        else:
-            self.logger.warning(f"Keeping {path} in queue due to send failure.")
+            self.delete_from_queue(path, index)
+            return True
+
+        self.record_send_failure(path, index, entry)
+        return False

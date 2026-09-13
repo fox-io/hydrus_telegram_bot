@@ -17,6 +17,12 @@ class ConfigModel(BaseModel):
         hydrus_api_key (str): The API key for accessing the Hydrus Network client.
         queue_tag (str): The tag used to identify files to be queued in Hydrus.
         posted_tag (str): The tag used to mark files as posted in Hydrus.
+        failed_tag (str): The tag used to mark files that could not be sent to Telegram.
+                          Optional; defaults to 'failed:telegram'.
+        max_send_failures (int): How many send attempts a queued file gets before it is
+                                 dropped from the queue. Optional; defaults to 3.
+        max_post_attempts (int): How many different files to try in a single run before
+                                 giving up on posting that run. Optional; defaults to 10.
         admins (list[int]): List of Telegram user IDs with admin privileges.
         delay (int): The delay between updates in minutes.
         timezone (int): The timezone offset in hours from UTC.
@@ -45,6 +51,9 @@ class ConfigModel(BaseModel):
     hydrus_api_key: str = Field(..., title='Hydrus API Key', description='The Hydrus API key.')
     queue_tag: str = Field(..., title='Queue Tag', description='The tag to use for searching Hydrus for files to queue.')
     posted_tag: str = Field(..., title='Posted Tag', description='The tag to use for marking files as posted in Hydrus.')
+    failed_tag: str = Field('failed:telegram', title='Failed Tag', description='The tag to use for marking files that could not be sent to Telegram.')
+    max_send_failures: int = Field(3, ge=1, title='Max Send Failures', description='How many times a queued file may fail to send before it is dropped from the queue.')
+    max_post_attempts: int = Field(10, ge=1, title='Max Post Attempts', description='How many different queued files to try in a single run before giving up on posting anything that run.')
     admins: list[int] = Field(..., title='Admins', description='A list of Telegram user IDs that are bot admins.')
     delay: int = Field(..., title='Delay', description='The delay between updates in minutes.')
     timezone: int = Field(..., title='Timezone', description='The timezone offset in hours.')

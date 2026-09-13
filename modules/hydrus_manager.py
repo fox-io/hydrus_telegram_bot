@@ -140,6 +140,70 @@ class HydrusManager:
             self.logger.error(f"An error occurred while getting metadata: {e}")
             return None
 
+    def get_file_id(self, file_hash: str) -> t.Optional[int]:
+        """
+        Looks up a Hydrus file ID from its hash.
+
+        Used to recover the file ID for queue entries written before the ID was
+        stored alongside the queued file.
+
+        Args:
+            file_hash (str): The file's Hydrus hash.
+
+        Returns:
+            int: The file ID, or None if it could not be resolved.
+        """
+        try:
+            metadata = self.hydrus_client.get_file_metadata(hashes=[file_hash], only_return_identifiers=True)
+        except Exception as e:
+            self.logger.error(f"An error occurred while looking up the file id for hash {file_hash}: {e}")
+            return None
+
+        entries = (metadata or {}).get('metadata') or []
+        if not entries:
+            self.logger.warning(f"Hydrus returned no metadata for hash {file_hash}.")
+            return None
+        return entries[0].get('file_id')
+
+    def mark_file_failed(self, file_id: t.Optional[int] = None, file_hash: t.Optional[str] = None) -> bool:
+        """
+        Tags a file in Hydrus as having failed to send to Telegram.
+
+        The failed tag gives you a Hydrus-side worklist of files the bot gave up on,
+        so they can be reviewed and requeued once the underlying problem is fixed.
+        The posted tag is removed at the same time, since the file was never posted.
+
+        Args:
+            file_id (int, optional): The Hydrus file ID. Preferred when known.
+            file_hash (str, optional): The file's hash, used to resolve the ID when
+                                       file_id is not available.
+
+        Returns:
+            bool: True if the file was tagged, False otherwise.
+
+        Note:
+            Failures here are logged and swallowed. Being unable to tag a file must
+            not stop the bot from dropping it from the queue, or the queue would
+            never drain.
+        """
+        if file_id is None and file_hash:
+            file_id = self.get_file_id(file_hash)
+
+        if file_id is None:
+            self.logger.warning("Cannot mark a file as failed in Hydrus without a file id or hash.")
+            return False
+
+        try:
+            self.modify_tag(file_id, self.config.failed_tag, hydrus_api.TagAction.ADD, "my_tags")
+            # The file never actually posted, so the posted tag would be misleading.
+            self.modify_tag(file_id, self.config.posted_tag, hydrus_api.TagAction.DELETE, "my_tags")
+        except Exception as e:
+            self.logger.error(f"Could not tag file_id {file_id} as {self.config.failed_tag}: {e}")
+            return False
+
+        self.logger.info(f"Tagged file_id {file_id} as {self.config.failed_tag} in Hydrus.")
+        return True
+
     def get_file_content(self, id: int) -> bytes:
         """
         Retrieves the content of a file from Hydrus Network.
