@@ -46,3 +46,4 @@ start.bat
 # ----- Python artifacts -----
 __pycache__/
 *.py[cod]
+Code Review.md

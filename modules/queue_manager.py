@@ -3,8 +3,28 @@ import pathlib
 import random
 import subprocess
 import urllib.parse
+from enum import Enum
 from modules.log_manager import LogManager
 from modules.file_manager import FileManager
+
+class QueueResult(Enum):
+    """
+    The outcome of an attempt to save a Hydrus file to the queue.
+
+    Attributes:
+        ADDED: The file was downloaded and appended to the queue.
+        DUPLICATE: The file was already in the queue, so there was nothing to do.
+        FAILED: The file could not be enqueued (missing metadata, download error, etc).
+
+    Note:
+        Only FAILED means the file still needs to be picked up on a later run.
+        Callers must not retag a file in Hydrus unless the result is ADDED or
+        DUPLICATE, otherwise the file loses its queue tag without ever being
+        queued and will never be posted.
+    """
+    ADDED = 'added'
+    DUPLICATE = 'duplicate'
+    FAILED = 'failed'
 
 class QueueManager:
     """
@@ -163,7 +183,7 @@ class QueueManager:
                     return True
         return False
 
-    def save_image_to_queue(self, file_id: int) -> int:
+    def save_image_to_queue(self, file_id: int) -> QueueResult:
         """
         Saves an image from Hydrus to the queue.
 
@@ -177,25 +197,28 @@ class QueueManager:
             file_id (int): The ID of the file to save.
 
         Returns:
-            int: 1 if the image was saved successfully, 0 otherwise.
+            QueueResult: ADDED if the image was appended to the queue, DUPLICATE if
+                         it was already queued, or FAILED if it could not be enqueued.
 
         Raises:
             Exception: If an error occurs while saving the image.
 
         Note:
             The image is only added to the queue if it's not already present.
+            A FAILED result means the file has not been queued, so the caller must
+            leave its Hydrus tags alone to allow a retry on a later run.
         """
         try:
             # Load metadata from Hydrus.
             metadata = self.hydrus.get_metadata(file_id)
             if not metadata or 'metadata' not in metadata or not metadata["metadata"]:
                 self.logger.error(f"No metadata found for file_id {file_id}.")
-                return 0
+                return QueueResult.FAILED
 
             file_info = metadata['metadata'][0]
             if 'hash' not in file_info or 'ext' not in file_info or 'file_id' not in file_info or 'tags' not in file_info:
                 self.logger.error(f"Missing file info for file_id {file_id}.")
-                return 0
+                return QueueResult.FAILED
 
             # Save image from Hydrus to queue folder. Creates filename based on hash.
             filename = str(f"{file_info['hash']}{file_info['ext']}")
@@ -204,18 +227,15 @@ class QueueManager:
                 file_content = self.hydrus.get_file_content(file_info['file_id'])
                 if not file_content:
                     self.logger.error(f"No file content found for file_id {file_info['file_id']}.")
-                    return 0
+                    return QueueResult.FAILED
                 path.write_bytes(file_content)
             except Exception as e:
                 self.logger.error(f"An error occurred while saving the image to the queue: {filename}: {e}")
-                return 0
+                return QueueResult.FAILED
 
             # Get the tags for the image
             tags_dict = file_info.get("tags", {})
-            if self.hydrus.hydrus_service_key["downloader_tags"] not in tags_dict:
-                self.logger.error(f"No downloader tags found for file_id {file_id}.")
-                return 0
-                
+
             # Debug logging to understand the tags structure
             # Commented out to avoid Unicode encoding issues in console logging
             # Uncomment the lines below if you need to debug tag structures
@@ -230,10 +250,17 @@ class QueueManager:
             #     self.logger.debug(f"Could not log tags structure due to encoding issues: {e}")
 
             # Process tags and create metadata
-            downloader_tags = tags_dict[self.hydrus.hydrus_service_key["downloader_tags"]]
-            
-            # Check if downloader_tags has the expected structure
-            if 'storage_tags' not in downloader_tags:
+            downloader_tags = tags_dict.get(self.hydrus.hydrus_service_key["downloader_tags"])
+
+            # Check if downloader_tags has the expected structure. A file with no usable
+            # tags is still postable, just without metadata, so these are warnings rather
+            # than failures. Failing here would strand the file: it would never be queued
+            # and would be re-downloaded on every run.
+            if not downloader_tags:
+                self.logger.warning(f"No downloader tags found for file_id {file_id}. "
+                                    f"File: {filename}. Skipping tag processing.")
+                tags = []
+            elif 'storage_tags' not in downloader_tags:
                 self.logger.warning(f"No storage_tags found in downloader_tags for file_id {file_id}. Skipping tag processing.")
                 tags = []
             else:
@@ -306,13 +333,13 @@ class QueueManager:
                 self.queue_data['queue'].append(image_data)
                 self.queue_loaded = False
                 self.save_queue()
-                return 1
+                return QueueResult.ADDED
             else:
-                return 0
+                return QueueResult.DUPLICATE
 
         except Exception as e:
             self.logger.error(f"An error occurred while saving the image to the queue: {e}")
-            return 0
+            return QueueResult.FAILED
 
     def delete_from_queue(self, path: str, index: int):
         """
