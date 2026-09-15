@@ -25,18 +25,65 @@ REQ_KEYS = [
 
 PY_MODULES = [
     ('hydrus_api', 'hydrus_api'),
-    ('wand.image', 'wand'),
+    ('wand', 'wand'),
     ('requests', 'requests'),
     ('pydantic', 'pydantic'),
 ]
 
-BINARIES = ['ffmpeg', 'convert']
+# Only ffmpeg is invoked as a binary. ImageMagick is used through Wand, which loads
+# the shared library directly, so it is checked by check_imagemagick() instead.
+BINARIES = ['ffmpeg']
+
+IMAGEMAGICK_HELP = {
+    'darwin': "brew install imagemagick",
+    'win32': "https://imagemagick.org/script/download.php#windows "
+             "(tick 'Install development headers and libraries for C and C++')",
+    'linux': "apt install libmagickwand-dev  (or your distro's equivalent)",
+}
 
 
 def check_python_version():
-    ok = sys.version_info >= (3, 8)
-    print(f"Python >= 3.8: {'OK' if ok else 'FAIL ('+sys.version.split()[0]+')'}")
+    # requests and urllib3 both declare Requires-Python >= 3.10, and neither is optional.
+    ok = sys.version_info >= (3, 10)
+    print(f"Python >= 3.10: {'OK' if ok else 'FAIL ('+sys.version.split()[0]+')'}")
     return ok
+
+
+def check_imagemagick():
+    """
+    Verifies that Wand can load the ImageMagick shared library.
+
+    The bot never shells out to the ImageMagick CLI, it uses Wand, which loads the
+    library through ctypes. Looking for a binary on PATH is therefore the wrong test,
+    and on Windows it is actively misleading: C:\\Windows\\System32\\convert.exe is a
+    built-in FAT-to-NTFS utility, so checking for 'convert' passes even when
+    ImageMagick is not installed at all.
+
+    Importing wand.image is the real test, since that is what triggers the library
+    load. Note that wand.version cannot be used for this, as it wraps its own library
+    import in try/except and stays importable when ImageMagick is missing.
+    """
+    try:
+        import wand  # noqa: F401
+    except ImportError:
+        print("ImageMagick: FAIL - the Wand package is not installed.")
+        return False
+
+    try:
+        import wand.image  # noqa: F401
+    except Exception as e:
+        print("ImageMagick: FAIL - Wand could not load the ImageMagick library.")
+        print(f"  {e}")
+        print(f"  Install: {IMAGEMAGICK_HELP.get(sys.platform, 'install ImageMagick for your platform')}")
+        return False
+
+    try:
+        from wand.version import MAGICK_VERSION
+        detail = MAGICK_VERSION.split('https')[0].strip()
+    except ImportError:
+        detail = 'version unavailable'
+    print(f"ImageMagick: OK ({detail})")
+    return True
 
 
 def check_config():
@@ -96,6 +143,7 @@ def main():
     checks.append(('config', check_config()))
     checks.append(('binaries', check_binaries()))
     checks.append(('python_imports', check_imports()))
+    checks.append(('imagemagick', check_imagemagick()))
 
     failed = [name for name, ok in checks if not ok]
     print('\nSummary:')

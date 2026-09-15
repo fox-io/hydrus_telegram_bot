@@ -20,7 +20,9 @@ queue/*
 !queue/.gitkeep
 
 # ----- Virtual environments & IDE settings -----
+# Both names are in use: .venv on macOS, venv on the Windows host.
 /.venv/
+/venv/
 /.idea/
 /.vscode/
 /.github/
