@@ -4,8 +4,10 @@ import random
 import subprocess
 import urllib.parse
 from enum import Enum
-from modules.log_manager import LogManager
+
 from modules.file_manager import FileManager
+from modules.log_manager import LogManager
+
 
 class QueueResult(Enum):
     """
@@ -57,23 +59,23 @@ class QueueManager:
     def _proper_title(self, text: str) -> str:
         """
         Converts text to title case while properly handling apostrophes.
-        
+
         This function fixes the issue with Python's .title() method which
         incorrectly capitalizes letters after apostrophes (e.g., "don't" -> "Don'T").
-        
+
         Args:
             text (str): The text to convert to title case.
-            
+
         Returns:
             str: The text in proper title case.
         """
         if not text:
             return text
-        
+
         # Split by spaces and handle each word
         words = text.split()
         title_words = []
-        
+
         for word in words:
             # Handle apostrophes by splitting on them and capitalizing each part
             if "'" in word:
@@ -89,7 +91,7 @@ class QueueManager:
             else:
                 # No apostrophe, just capitalize normally
                 title_words.append(word.capitalize())
-        
+
         return " ".join(title_words)
 
     def __init__(self, config, queue_file: str):
@@ -123,7 +125,7 @@ class QueueManager:
     def set_hydrus(self, hydrus):
         """
         Sets the Hydrus manager instance.
-        
+
         Args:
             hydrus (HydrusManager): The Hydrus manager instance.
         """
@@ -169,7 +171,7 @@ class QueueManager:
 
         Args:
             filename (str): The name of the image file to check.
-        
+
         Returns:
             bool: True if the image is in the queue, False otherwise.
 
@@ -265,7 +267,7 @@ class QueueManager:
                 tags = []
             else:
                 storage_tags = downloader_tags['storage_tags']
-                
+
                 # Check if storage_tags has the expected structure
                 if not storage_tags or '0' not in storage_tags:
                     self.logger.warning(f"No storage tags found for file_id {file_id} or missing '0' key. "
@@ -355,7 +357,7 @@ class QueueManager:
         Args:
             path (str): The path to the image file.
             index (int): The index of the image in the queue.
-        
+
         Raises:
             IndexError: If the image could not be removed from the queue.
             OSError: If the image could not be deleted from disk.

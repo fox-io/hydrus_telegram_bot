@@ -1,9 +1,11 @@
-import requests
-from modules.log_manager import LogManager
-from modules.queue_manager import QueueResult
+
 import hydrus_api
 import hydrus_api.utils
-import typing as t
+import requests
+
+from modules.log_manager import LogManager
+from modules.queue_manager import QueueResult
+
 
 class HydrusManager:
     """
@@ -57,7 +59,7 @@ class HydrusManager:
         self.queue_file = self.queue.queue_file
         self.logger.debug('Hydrus Module initialized.')
 
-    def modify_tag(self, file_id: t.Union[int, list], tag: str, action: hydrus_api.TagAction, service: str):
+    def modify_tag(self, file_id: int | list, tag: str, action: hydrus_api.TagAction, service: str):
         """
         Modifies tags on files in Hydrus Network.
 
@@ -120,7 +122,7 @@ class HydrusManager:
         else:
             return True
 
-    def get_metadata(self, id: int) -> t.Optional[dict]:
+    def get_metadata(self, id: int) -> dict | None:
         """
         Retrieves metadata for a file from Hydrus Network.
 
@@ -140,7 +142,7 @@ class HydrusManager:
             self.logger.error(f"An error occurred while getting metadata: {e}")
             return None
 
-    def get_file_id(self, file_hash: str) -> t.Optional[int]:
+    def get_file_id(self, file_hash: str) -> int | None:
         """
         Looks up a Hydrus file ID from its hash.
 
@@ -165,7 +167,7 @@ class HydrusManager:
             return None
         return entries[0].get('file_id')
 
-    def mark_file_failed(self, file_id: t.Optional[int] = None, file_hash: t.Optional[str] = None) -> bool:
+    def mark_file_failed(self, file_id: int | None = None, file_hash: str | None = None) -> bool:
         """
         Tags a file in Hydrus as having failed to send to Telegram.
 

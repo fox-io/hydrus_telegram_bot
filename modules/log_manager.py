@@ -1,8 +1,9 @@
 import logging
-from logging.handlers import RotatingFileHandler
-from colorama import init, Fore, Style
 import os
 import sys
+from logging.handlers import RotatingFileHandler
+
+from colorama import Fore, Style, init
 
 # Initialize colorama
 init(autoreset=True)
@@ -104,7 +105,7 @@ class LogManager:
                 """
                 log_color = self.COLORS.get(record.levelname, Fore.WHITE)
                 log_message = super().format(record)
-                
+
                 # Handle Unicode characters safely
                 try:
                     return f"{log_color}{log_message}{Style.RESET_ALL}"
@@ -112,14 +113,14 @@ class LogManager:
                     # If Unicode fails, replace problematic characters
                     safe_message = log_message.encode('utf-8', errors='replace').decode('utf-8')
                     return f"{log_color}{safe_message}{Style.RESET_ALL}"
-            
+
         # Prevent duplicate loggers from being created
         if logger.hasHandlers():
             return logger
-        
+
         # Create the log directory if it doesn't exist
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        
+
         # Set up rotating log files
         file_handler = RotatingFileHandler(
             out_file,
@@ -127,26 +128,26 @@ class LogManager:
             backupCount=3,
             encoding='utf-8'
         )
-        
+
         # Set the message formatting
         formatter = logging.Formatter(
             '%(asctime)s (%(name)s) %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
-        
+
         # Create the handlers
         console_handler = logging.StreamHandler(sys.stdout)
-        
+
         # Set the handler levels
         file_handler.setLevel(logging.DEBUG)
         console_handler.setLevel(logging.INFO)
-        
+
         # Set the handler formatting
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(ColorFormatter(
             '%(asctime)s (%(name)s) %(levelname)s - %(message)s'
         ))
-        
+
         # Add the handlers to the logger
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)

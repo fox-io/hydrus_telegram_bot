@@ -1,8 +1,8 @@
-import unittest
-from unittest.mock import MagicMock, patch
+import os
 import subprocess
 import sys
-import os
+import unittest
+from unittest.mock import MagicMock, patch
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -154,9 +154,6 @@ class TestSaveImageToQueue(unittest.TestCase):
         self.assertIs(QueueResult.ADDED, self.manager.save_image_to_queue(1))
         self.assertNotIn('creator', self.manager.queue_data['queue'][0])
 
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestRecordSendFailure(unittest.TestCase):
@@ -476,3 +473,6 @@ class TestProcessQueueEndToEnd(unittest.TestCase):
         # A successful post must not trigger the "nothing posted" alert.
         for call in self.manager.telegram.send_message.call_args_list:
             self.assertNotIn('Nothing could be posted', call.args[0])
+
+if __name__ == "__main__":
+    unittest.main()

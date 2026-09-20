@@ -1,25 +1,26 @@
-from modules.log_manager import LogManager
-from modules.hydrus_manager import HydrusManager
-from modules.telegram_manager import TelegramManager
-from modules.schedule_manager import ScheduleManager
-from modules.queue_manager import QueueManager
-from modules.config_manager import ConfigManager
-import signal
-import time
-import sys
-import os
+import functools
+import json as _json
 import logging
 import logging.handlers
-from typing import Optional, Callable
-import functools
-import threading
+import os
+import signal
 import subprocess
-import json as _json
+import sys
+import threading
+import time
+from collections.abc import Callable
+
+from modules.config_manager import ConfigManager
+from modules.hydrus_manager import HydrusManager
+from modules.log_manager import LogManager
+from modules.queue_manager import QueueManager
+from modules.schedule_manager import ScheduleManager
+from modules.telegram_manager import TelegramManager
 
 # Monkey patch for Windows file locking issue with RotatingFileHandler
 if os.name == 'nt':
     def robust_rotate(self, source, dest):
-        for i in range(10):
+        for _ in range(10):
             try:
                 if os.path.exists(dest):
                     os.remove(dest)
@@ -43,10 +44,10 @@ def manage_pid_lock():
     pid_file = 'bot.pid'
     if os.path.exists(pid_file):
         try:
-            with open(pid_file, 'r') as f:
+            with open(pid_file) as f:
                 content = f.read().strip()
                 old_pid = int(content) if content else None
-            
+
             if old_pid:
                 try:
                     os.kill(old_pid, 0)
@@ -59,7 +60,7 @@ def manage_pid_lock():
                     print(f"Found stale PID file for PID {old_pid}. Cleaning up.")
         except (ValueError, OSError) as e:
             print(f"Error checking PID file: {e}")
-        
+
         if os.path.exists(pid_file):
             try:
                 os.remove(pid_file)
@@ -153,7 +154,7 @@ class HydrusTelegramBot:
         self.is_shutting_down = False
 
         # Initialize our modules.
-        self.config = ConfigManager('config.json')        
+        self.config = ConfigManager('config.json')
         self.queue = QueueManager(self.config, 'queue.json')
         self.hydrus = HydrusManager(self.config, self.queue)
         self.telegram = TelegramManager(self.config)
@@ -199,16 +200,18 @@ class HydrusTelegramBot:
                         return func(*args, **kwargs)
                     except Exception as e:
                         if attempt == max_retries - 1:
-                            if logger: logger.error(f"Operation failed after {max_retries} attempts: {e}")
+                            if logger:
+                                logger.error(f"Operation failed after {max_retries} attempts: {e}")
                             raise
-                        if logger: logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
+                        if logger:
+                            logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
                         time.sleep(delay)
                         delay = min(delay * 2, max_delay)
                 return None
             return wrapper
         return decorator
 
-    def graceful_shutdown(self, signum: Optional[int] = None, frame: Optional[object] = None):
+    def graceful_shutdown(self, signum: int | None = None, frame: object | None = None):
         """
         Handles graceful shutdown of the bot.
 
@@ -218,19 +221,19 @@ class HydrusTelegramBot:
         """
         if self.is_shutting_down:
             return
-        
+
         self.is_shutting_down = True
         self.logger.info(f"Received shutdown signal {signum}. Initiating graceful shutdown...")
-        
+
         try:
             # Save any pending queue data
             if hasattr(self, 'queue') and self.queue.queue_loaded:
                 self.queue.save_queue()
-            
+
             # Notify admins about shutdown
             if hasattr(self, 'telegram'):
                 self.telegram.send_message("Bot is shutting down gracefully.")
-            
+
             # Clean up PID file
             if os.path.exists('bot.pid'):
                 try:

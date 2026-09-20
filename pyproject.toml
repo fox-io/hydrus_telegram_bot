@@ -1,0 +1,31 @@
+# Tooling configuration only. This project is run directly with `python bot.py`
+# and is not packaged, so there is deliberately no [project] or [build-system]
+# table here.
+
+[tool.ruff]
+line-length = 120
+# Matches the floor enforced in CI and declared by requests / urllib3.
+target-version = "py310"
+extend-exclude = [".venv", "venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "I",   # isort
+]
+ignore = [
+    # Most long lines here are log messages and docstrings. Enforcing a hard cap
+    # would mean reflowing a lot of otherwise readable code, so line-length above
+    # guides the formatter rather than failing the lint.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test modules must extend sys.path and stub out wand before importing the code
+# under test, so their imports legitimately follow executable statements.
+"tests/*.py" = ["E402"]

@@ -1,6 +1,8 @@
 import sched
 import time
+
 from modules.log_manager import LogManager
+
 
 class ScheduleManager:
     """

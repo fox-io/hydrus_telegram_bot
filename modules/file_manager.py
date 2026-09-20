@@ -1,5 +1,7 @@
-from modules.log_manager import LogManager
 import json
+
+from modules.log_manager import LogManager
+
 
 class FileManager:
     """

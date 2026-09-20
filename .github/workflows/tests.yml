@@ -32,3 +32,19 @@ jobs:
       # not run here either, since it requires config/config.json, which is not committed.
       - name: Run tests
         run: python -m unittest discover -s tests -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # Pinned so a new ruff release cannot turn CI red without a deliberate bump.
+      - name: Install ruff
+        run: pip install ruff==0.16.8
+
+      - name: Lint
+        run: ruff check --output-format=github .

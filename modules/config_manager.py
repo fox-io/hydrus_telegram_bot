@@ -1,7 +1,10 @@
-from pydantic import BaseModel, Field, ValidationError
-from modules.log_manager import LogManager
 import json
 import sys
+
+from pydantic import BaseModel, Field, ValidationError
+
+from modules.log_manager import LogManager
+
 
 class ConfigModel(BaseModel):
     """

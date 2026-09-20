@@ -1,8 +1,8 @@
-import unittest
-from unittest.mock import MagicMock, patch
-import urllib.parse
-import sys
 import os
+import sys
+import unittest
+import urllib.parse
+from unittest.mock import MagicMock, patch
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

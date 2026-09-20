@@ -1,16 +1,19 @@
-import re
-from urllib.parse import urlparse
-import urllib.parse
-from wand.image import Image
-import os
-import requests
-import math
-from requests.adapters import HTTPAdapter
-from requests.exceptions import ReadTimeout, ConnectionError, RequestException
-from urllib3.util.retry import Retry
-from modules.log_manager import LogManager
 import json
+import math
+import os
+import re
 import time
+import urllib.parse
+from urllib.parse import urlparse
+
+import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import ConnectionError, ReadTimeout, RequestException
+from urllib3.util.retry import Retry
+from wand.image import Image
+
+from modules.log_manager import LogManager
+
 
 class TelegramManager:
     """
@@ -219,7 +222,7 @@ class TelegramManager:
                     size_ratio = os.path.getsize(path) / self.config.max_file_size
                     img.resize(round(img.width / math.sqrt(size_ratio)), round(img.height / math.sqrt(size_ratio)))
                     img.save(filename=path)
-            
+
             return True
         except Exception as e:
             self.logger.error(f"Could not open the image: {e}")
@@ -310,20 +313,20 @@ class TelegramManager:
         """
         max_retries = 3
         timeouts = [10, 20, 30]
-        
+
         for attempt in range(max_retries):
             sent_file = None
             timeout = timeouts[attempt]
-            
+
             try:
                 # Reset file handles to beginning before each attempt to avoid "file must be non-empty" errors
                 for file_obj in image.values():
                     if hasattr(file_obj, 'seek'):
                         file_obj.seek(0)
-                
+
                 self.logger.debug(f"Attempting to send {path} (attempt {attempt + 1}/{max_retries}, timeout={timeout}s)")
                 sent_file = requests.post(api_call, files=image, timeout=timeout)
-                
+
                 if sent_file.status_code != 200:
                     self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
                     if 400 <= sent_file.status_code < 500:
@@ -334,7 +337,7 @@ class TelegramManager:
                         self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nStatus: {sent_file.status_code}")
                         return False
                     continue
-                
+
                 content_type = sent_file.headers.get('Content-Type', '')
                 response_json = sent_file.json() if 'application/json' in content_type else {}
 
@@ -346,7 +349,7 @@ class TelegramManager:
                     if attempt == max_retries - 1:
                         self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nResponse: {response_json.get('description', 'Unknown error')}")
                         return False
-                        
+
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"Could not communicate with the Telegram bot (attempt {attempt + 1}/{max_retries}): {self._redact_token(e)}")
                 if attempt == max_retries - 1:
@@ -354,7 +357,7 @@ class TelegramManager:
                     return False
                 # Wait before retrying (exponential backoff)
                 time.sleep(2 ** attempt)
-        
+
         return False
 
     def process_incoming_message(self, message: dict):
@@ -374,7 +377,7 @@ class TelegramManager:
     def poll_telegram_updates(self, is_shutting_down_func):
         """
         Polls Telegram for new updates and processes incoming messages from admins.
-        
+
         Args:
             is_shutting_down_func (callable): Function that returns whether the bot is shutting down.
         """

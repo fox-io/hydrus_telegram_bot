@@ -13,9 +13,8 @@ Exit codes:
 """
 import json
 import os
-import sys
 import shutil
-import subprocess
+import sys
 
 REQ_KEYS = [
     'admins', 'telegram_access_token', 'telegram_channel', 'telegram_bot_id',
