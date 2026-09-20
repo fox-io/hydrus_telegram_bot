@@ -27,7 +27,7 @@ Currently supports image formats such as jpg and png. webp is partially supporte
 
 - Module naming: each major component is a `*manager.py` and exposes methods used by `bot.py` — keep changes contained to the relevant manager.
 - Config validation: use `ConfigModel` in `modules/config_manager.py`. Invalid or missing `config/config.json` causes the process to `exit(1)` — update carefully.
-- Queue JSON shape: `{'queue': [ { 'path': '<hash><ext>', 'sauce': '...', 'creator': '...', ... }, ... ]}`. Use `FileManager.operation(filename, mode, payload)` for safe read/write.
+- Queue JSON shape: `{'queue': [ { 'path': '<hash><ext>', 'file_id': <int>, 'sauce': '...', 'creator': '...', 'title': '...', 'character': '...', 'failures': <int> }, ... ]}`. Only `path` and `file_id` are always present; the metadata keys are omitted when the tag is absent, and `failures` appears once a send has failed. Use `FileManager.operation(filename, mode, payload)` for safe read/write.
 - Hydrus tags: code expects a nested downloader-tags structure: `downloader_tags -> storage_tags -> '0' -> [tags]`. Tag parsing looks for `creator:`, `title:`, `character:` prefixes — changes to Hydrus downloader tagging can break metadata extraction.
 - File naming: saved as `<hash><ext>` in `queue/`. WebM handling converts to MP4 using `ffmpeg` and generates a thumbnail `<file>.jpg`.
 
@@ -76,6 +76,7 @@ python3 bot.py
 ## Code change examples
 
 - To change posting frequency: edit `config/config.json` -> `delay` (minutes). `ScheduleManager` will schedule next runs using that value.
+- To tune failure handling: `max_send_failures` (default 3) is how many runs a file may fail to send before it is dropped from the queue and tagged `failed_tag` (default `failed:telegram`) in Hydrus. `max_post_attempts` (default 10) is how many different files a single run will try before giving up, so one unsendable file does not consume the run. All three are optional and defaulted.
 - To add a new admin command handler: extend `TelegramManager.process_incoming_message()` and add logic guarded by `if user_id in self.config.admins:`.
 - To alter queue selection strategy: modify `QueueManager.process_queue()` (currently chooses a random index via `random.randint`).
 
