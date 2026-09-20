@@ -1,12 +1,68 @@
 import os
 import pathlib
 import random
+import re
 import subprocess
 import urllib.parse
 from enum import Enum
 
 from modules.file_manager import FileManager
 from modules.log_manager import LogManager
+
+#: Hydrus identifies files by hex hash. Anything else is not something to name a file after.
+_SAFE_HASH = re.compile(r'^[0-9a-fA-F]{6,128}$')
+
+#: A single leading dot followed by alphanumerics. Deliberately excludes path
+#: separators, additional dots and everything else, so no value matching this can
+#: walk out of the queue directory regardless of what Hydrus sends.
+_SAFE_EXT = re.compile(r'^\.[A-Za-z0-9]{1,10}$')
+
+
+def safe_queue_filename(file_hash, ext):
+    """
+    Builds the queue filename for a Hydrus file, rejecting anything unsafe.
+
+    The hash and extension arrive verbatim from the Hydrus API and are concatenated
+    into a filesystem path. Hydrus is not expected to send a hostile value, but it
+    is a trust boundary and validating it costs nothing.
+
+    Args:
+        file_hash (str): The file's Hydrus hash.
+        ext (str): The file extension, including the leading dot.
+
+    Returns:
+        str: The filename, or None if either value fails validation.
+    """
+    if not isinstance(file_hash, str) or not _SAFE_HASH.match(file_hash):
+        return None
+    if not isinstance(ext, str) or not _SAFE_EXT.match(ext):
+        return None
+    return f"{file_hash}{ext}"
+
+
+def resolve_queue_path(filename, queue_dir=None):
+    """
+    Resolves a filename inside the queue directory, refusing to escape it.
+
+    Args:
+        filename (str): Name to resolve. A bare filename is expected.
+        queue_dir (Path): Directory to resolve within. Defaults to ./queue.
+
+    Returns:
+        Path: The resolved absolute path, or None if it lands outside queue_dir.
+
+    Note:
+        This is a backstop for safe_queue_filename. It also covers queue entries
+        written before that validation existed, and catches symlink traversal,
+        which a pattern match on the name cannot see.
+    """
+    queue_dir = pathlib.Path.cwd() / "queue" if queue_dir is None else pathlib.Path(queue_dir)
+    if not filename or os.path.isabs(filename):
+        return None
+    candidate = (queue_dir / filename).resolve()
+    if not candidate.is_relative_to(queue_dir.resolve()):
+        return None
+    return candidate
 
 
 class QueueResult(Enum):
@@ -223,8 +279,20 @@ class QueueManager:
                 return QueueResult.FAILED
 
             # Save image from Hydrus to queue folder. Creates filename based on hash.
-            filename = str(f"{file_info['hash']}{file_info['ext']}")
-            path = pathlib.Path.cwd() / "queue" / filename
+            # The hash and extension come straight from the API, so validate them
+            # before they become a path.
+            filename = safe_queue_filename(file_info['hash'], file_info['ext'])
+            if filename is None:
+                self.logger.error(
+                    f"Refusing unsafe filename for file_id {file_id}: "
+                    f"hash={file_info['hash']!r} ext={file_info['ext']!r}"
+                )
+                return QueueResult.FAILED
+
+            path = resolve_queue_path(filename)
+            if path is None:
+                self.logger.error(f"Refusing path outside the queue directory for file_id {file_id}: {filename!r}")
+                return QueueResult.FAILED
             try:
                 file_content = self.hydrus.get_file_content(file_info['file_id'])
                 if not file_content:
@@ -497,6 +565,25 @@ class QueueManager:
             f"⚠️ Nothing could be posted this run. Tried {len(attempted)} file(s) - check the log."
         )
 
+    def discard_queue_entry(self, index: int):
+        """
+        Removes a queue entry without touching the filesystem.
+
+        Used for entries whose recorded path is not safe to act on. The normal
+        eviction path calls os.remove() on that path, which is exactly what must
+        not happen here.
+
+        Args:
+            index (int): The index of the entry to drop.
+        """
+        try:
+            self.queue_data['queue'].pop(index)
+        except IndexError as e:
+            self.logger.error(f"Could not discard queue entry: {e}")
+            return
+        self.queue_loaded = False
+        self.save_queue()
+
     def _run_ffmpeg(self, args: list):
         """
         Runs ffmpeg against a queued file with a timeout and no access to stdin.
@@ -553,6 +640,14 @@ class QueueManager:
             Either way this returns and lets the caller decide whether to try another
             file, so a bad file never consumes the whole run.
         """
+        # Entries written before filenames were validated, or edited by hand, could
+        # name a path outside the queue. Drop those without touching the filesystem,
+        # since the usual eviction path would os.remove() whatever they point at.
+        if resolve_queue_path(entry['path']) is None:
+            self.logger.error(f"Queue entry names a path outside the queue, discarding it: {entry['path']!r}")
+            self.discard_queue_entry(index)
+            return False
+
         path = "queue/" + entry['path']
         channel = str(self.config.telegram_channel)
 

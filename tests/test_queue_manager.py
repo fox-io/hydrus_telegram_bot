@@ -1,13 +1,21 @@
 import os
+import pathlib
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from modules.queue_manager import QueueManager, QueueResult
+from modules.queue_manager import (
+    QueueManager,
+    QueueResult,
+    resolve_queue_path,
+    safe_queue_filename,
+)
 
 
 class TestProperTitle(unittest.TestCase):
@@ -562,3 +570,170 @@ class TestFfmpegTimeoutIsRecorded(unittest.TestCase):
 
         self.manager.record_send_failure.assert_called_once()
         self.manager.delete_from_queue.assert_not_called()
+
+
+class TestSafeQueueFilename(unittest.TestCase):
+    """
+    Tests for safe_queue_filename().
+
+    The hash and extension arrive verbatim from the Hydrus API and are
+    concatenated straight into a filesystem path, so they are a trust boundary.
+    """
+
+    def test_accepts_a_normal_file(self):
+        self.assertEqual("abc123.jpg", safe_queue_filename("abc123", ".jpg"))
+
+    def test_accepts_the_formats_the_bot_handles(self):
+        for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".webm", ".mp4"):
+            with self.subTest(ext=ext):
+                self.assertEqual(f"abc123{ext}", safe_queue_filename("abc123", ext))
+
+    def test_rejects_traversal_in_the_extension(self):
+        for ext in ("../../../../etc/cron.d/evil", ".jpg/../../../evil", "..", "./x"):
+            with self.subTest(ext=ext):
+                self.assertIsNone(safe_queue_filename("abc123", ext))
+
+    def test_rejects_separators_in_the_extension(self):
+        for ext in (".jp/g", ".jp\\g", ".jp g"):
+            with self.subTest(ext=ext):
+                self.assertIsNone(safe_queue_filename("abc123", ext))
+
+    def test_rejects_extension_without_a_leading_dot(self):
+        self.assertIsNone(safe_queue_filename("abc123", "jpg"))
+
+    def test_rejects_empty_extension(self):
+        self.assertIsNone(safe_queue_filename("abc123", ""))
+
+    def test_rejects_non_hex_hash(self):
+        for h in ("../../etc/passwd", "not-hex-zzz", "abc/123", "abc 123"):
+            with self.subTest(hash=h):
+                self.assertIsNone(safe_queue_filename(h, ".jpg"))
+
+    def test_rejects_non_string_input(self):
+        self.assertIsNone(safe_queue_filename(None, ".jpg"))
+        self.assertIsNone(safe_queue_filename("abc123", None))
+        self.assertIsNone(safe_queue_filename(12345, ".jpg"))
+
+    def test_rejects_absurdly_long_extension(self):
+        self.assertIsNone(safe_queue_filename("abc123", "." + "a" * 200))
+
+
+class TestResolveQueuePath(unittest.TestCase):
+    """Tests for resolve_queue_path(): nothing may resolve outside the queue."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.queue = pathlib.Path(self.tmp) / "queue"
+        self.queue.mkdir()
+
+    def test_accepts_a_bare_filename(self):
+        self.assertIsNotNone(resolve_queue_path("abc.jpg", self.queue))
+
+    def test_rejects_parent_traversal(self):
+        self.assertIsNone(resolve_queue_path("../evil.jpg", self.queue))
+        self.assertIsNone(resolve_queue_path("sub/../../evil", self.queue))
+
+    def test_rejects_absolute_paths(self):
+        self.assertIsNone(resolve_queue_path("/etc/passwd", self.queue))
+
+    def test_rejects_empty(self):
+        self.assertIsNone(resolve_queue_path("", self.queue))
+
+    @unittest.skipIf(os.name == 'nt', "symlink creation needs privilege on Windows")
+    def test_rejects_symlink_escaping_the_queue(self):
+        """A name-only check cannot see this; resolution can."""
+        outside = pathlib.Path(self.tmp) / "outside.jpg"
+        outside.write_text("x")
+        (self.queue / "link.jpg").symlink_to(outside)
+        self.assertIsNone(resolve_queue_path("link.jpg", self.queue))
+
+
+class TestUnsafeEntriesAreNotActedOn(unittest.TestCase):
+    """A queue entry naming a path outside the queue must never reach the filesystem."""
+
+    @patch.object(QueueManager, '__init__', lambda self, config, queue_file: None)
+    def setUp(self):
+        self.manager = QueueManager(None, None)
+        self.manager.logger = MagicMock()
+        self.manager.config = MagicMock()
+        self.manager.config.telegram_channel = -100
+        self.manager.telegram = MagicMock()
+        self.manager.hydrus = MagicMock()
+        self.manager.save_queue = MagicMock()
+        self.manager.record_send_failure = MagicMock()
+        self.manager.delete_from_queue = MagicMock()
+        self.manager.queue_data = {"queue": [{'path': '../../etc/passwd', 'file_id': 1}]}
+        self.manager.queue_loaded = True
+
+    def test_entry_is_discarded_without_touching_disk(self):
+        with patch('os.remove') as remove, patch('builtins.open') as opened:
+            result = self.manager._attempt_post(self.manager.queue_data['queue'][0], 0)
+
+        self.assertFalse(result)
+        remove.assert_not_called()
+        opened.assert_not_called()
+        self.manager.delete_from_queue.assert_not_called()
+        self.assertEqual([], self.manager.queue_data['queue'], "the unsafe entry should be gone")
+
+
+class TestUnsafeHydrusFilenameIsRejected(unittest.TestCase):
+    """save_image_to_queue must refuse before writing anything."""
+
+    @patch.object(QueueManager, '__init__', lambda self, config, queue_file: None)
+    def setUp(self):
+        self.manager = QueueManager(None, None)
+        self.manager.logger = MagicMock()
+        self.manager.config = MagicMock()
+        self.manager.queue_data = {"queue": []}
+        self.manager.queue_loaded = True
+        self.manager.hydrus = MagicMock()
+        self.manager.hydrus.hydrus_service_key = {"downloader_tags": "DL"}
+        self.manager.telegram = MagicMock()
+        self.manager.save_queue = MagicMock()
+        self.manager.image_is_queued = MagicMock(return_value=False)
+
+    def test_traversal_extension_is_refused_before_download(self):
+        self.manager.hydrus.get_metadata.return_value = {
+            'metadata': [{'hash': 'abc123', 'ext': '../../../evil', 'file_id': 1, 'tags': {}}]
+        }
+        with patch('pathlib.Path.write_bytes') as write:
+            result = self.manager.save_image_to_queue(1)
+
+        self.assertIs(QueueResult.FAILED, result)
+        write.assert_not_called()
+        self.manager.hydrus.get_file_content.assert_not_called()
+
+    def test_non_hex_hash_is_refused(self):
+        """
+        Pins the name validation specifically.
+
+        This hash stays inside the queue directory, so the path-containment check
+        cannot catch it; only safe_queue_filename can.
+        """
+        self.manager.hydrus.get_metadata.return_value = {
+            'metadata': [{'hash': 'zzz-not-hex', 'ext': '.jpg', 'file_id': 1, 'tags': {}}]
+        }
+        with patch('pathlib.Path.write_bytes') as write:
+            self.assertIs(QueueResult.FAILED, self.manager.save_image_to_queue(1))
+        write.assert_not_called()
+        self.manager.hydrus.get_file_content.assert_not_called()
+
+    def test_multi_dot_extension_is_refused(self):
+        """Also inside the queue directory, so again only the name check catches it."""
+        self.manager.hydrus.get_metadata.return_value = {
+            'metadata': [{'hash': 'abc123', 'ext': '.jpg.exe', 'file_id': 1, 'tags': {}}]
+        }
+        with patch('pathlib.Path.write_bytes') as write:
+            self.assertIs(QueueResult.FAILED, self.manager.save_image_to_queue(1))
+        write.assert_not_called()
+
+    def test_escaping_extension_is_refused_by_containment(self):
+        """Pins the second layer: a name that escapes even if the pattern let it by."""
+        self.manager.hydrus.get_metadata.return_value = {
+            'metadata': [{'hash': 'abc123', 'ext': '.jpg', 'file_id': 1, 'tags': {}}]
+        }
+        with patch('modules.queue_manager.safe_queue_filename', return_value='../../evil.jpg'), \
+             patch('pathlib.Path.write_bytes') as write:
+            self.assertIs(QueueResult.FAILED, self.manager.save_image_to_queue(1))
+        write.assert_not_called()
