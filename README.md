@@ -121,6 +121,16 @@ cp config/config.json.example config/config.json
 python3 bot.py
 ```
 
+Only one instance may run per directory, enforced with an OS-level lock on
+`bot.lock`. Starting a second one refuses rather than killing the first:
+
+```bash
+python3 bot.py --force   # ask the running instance to stop, then take over
+```
+
+The lock cannot go stale: the kernel releases it if the bot crashes or is killed,
+so a leftover `bot.lock` never blocks a restart.
+
 - Run unit tests:
 
 ```bash

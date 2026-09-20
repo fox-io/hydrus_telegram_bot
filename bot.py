@@ -1,10 +1,9 @@
+import argparse
 import functools
-import json as _json
 import logging
 import logging.handlers
 import os
 import signal
-import subprocess
 import sys
 import threading
 import time
@@ -12,6 +11,7 @@ from collections.abc import Callable
 
 from modules.config_manager import ConfigManager
 from modules.hydrus_manager import HydrusManager
+from modules.instance_lock import InstanceLock
 from modules.log_manager import LogManager
 from modules.queue_manager import QueueManager
 from modules.schedule_manager import ScheduleManager
@@ -35,106 +35,6 @@ if os.name == 'nt':
 
     logging.handlers.RotatingFileHandler.rotate = robust_rotate
 
-def manage_pid_lock():
-    """
-    Ensures only one instance of the bot is running by using a PID file.
-    If a previous instance is found running, it is terminated to release resources.
-    Also scans for zombie 'bot.py' processes on Windows to release file locks.
-    """
-    pid_file = 'bot.pid'
-    if os.path.exists(pid_file):
-        try:
-            with open(pid_file) as f:
-                content = f.read().strip()
-                old_pid = int(content) if content else None
-
-            if old_pid:
-                try:
-                    os.kill(old_pid, 0)
-                    # Process exists
-                    print(f"Previous instance (PID {old_pid}) is running. Terminating...")
-                    os.kill(old_pid, signal.SIGTERM)
-                    time.sleep(2) # Wait for handles to release
-                except OSError:
-                    # Process does not exist
-                    print(f"Found stale PID file for PID {old_pid}. Cleaning up.")
-        except (ValueError, OSError) as e:
-            print(f"Error checking PID file: {e}")
-
-        if os.path.exists(pid_file):
-            try:
-                os.remove(pid_file)
-            except OSError:
-                pass
-
-    # Windows-specific: Scan for other python processes running this script
-    # This handles the case where no PID file exists (crash/first run) but a process is locked.
-    if os.name == 'nt':
-        try:
-            current_pid = os.getpid()
-            current_ppid = os.getppid() if hasattr(os, 'getppid') else None
-            script_name = os.path.basename(__file__)  # e.g., 'bot.py'
-
-            # Use PowerShell Get-Process (wmic is deprecated) and output JSON for clean parsing
-            ps_cmd = (
-                'powershell -NoProfile -Command "Get-CimInstance Win32_Process '
-                '-Filter \"Name=\'python.exe\'\" | '
-                'Select-Object ProcessId,ParentProcessId,CommandLine | '
-                'ConvertTo-Json -Compress"'
-            )
-            output = subprocess.check_output(ps_cmd, shell=True, text=True, errors='ignore').strip()
-            if not output:
-                pass  # No python processes found
-            else:
-                processes = _json.loads(output)
-                # PowerShell returns a single object (not a list) when there's only one result
-                if isinstance(processes, dict):
-                    processes = [processes]
-
-                for proc in processes:
-                    command_line = proc.get('CommandLine') or ''
-                    if script_name not in command_line:
-                        continue
-
-                    found_pid = proc.get('ProcessId')
-                    if not isinstance(found_pid, int):
-                        continue
-
-                    # Ignore myself and my parent process
-                    if found_pid == current_pid or (current_ppid and found_pid == current_ppid):
-                        continue
-
-                    print(f"Found zombie process {found_pid} running {script_name}. Terminating...")
-                    try:
-                        os.kill(found_pid, signal.SIGTERM)
-                        time.sleep(1)
-                    except OSError:
-                        pass  # Process may have already exited
-
-                    # Verify if process is still running and force kill if needed
-                    try:
-                        os.kill(found_pid, 0)
-                        print(f"Process {found_pid} still running. Forcing exit...")
-                        subprocess.run(['taskkill', '/F', '/PID', str(found_pid)],
-                                     stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.DEVNULL)
-                        time.sleep(1)
-                    except OSError:
-                        print(f"Process {found_pid} successfully terminated.")
-
-        except subprocess.CalledProcessError:
-            pass  # No 'python.exe' processes found
-        except (_json.JSONDecodeError, KeyError, TypeError) as e:
-            print(f"Warning: Could not parse process list: {e}")
-        except Exception as e:
-            print(f"Warning: Could not scan for zombie processes: {e}")
-
-    try:
-        with open(pid_file, 'w') as f:
-            f.write(str(os.getpid()))
-    except OSError as e:
-        print(f"Could not write PID file: {e}")
-
 class HydrusTelegramBot:
     """
     HydrusTelegramBot manages the connection between Hydrus Network and a Telegram bot.
@@ -152,6 +52,8 @@ class HydrusTelegramBot:
         # Set up logging
         self.logger = LogManager.setup_logger('BOT')
         self.is_shutting_down = False
+        # Set by the entry point once the single-instance lock is held.
+        self.instance_lock = None
 
         # Initialize our modules.
         self.config = ConfigManager('config.json')
@@ -234,12 +136,9 @@ class HydrusTelegramBot:
             if hasattr(self, 'telegram'):
                 self.telegram.send_message("Bot is shutting down gracefully.")
 
-            # Clean up PID file
-            if os.path.exists('bot.pid'):
-                try:
-                    os.remove('bot.pid')
-                except OSError:
-                    pass
+            # Release the single-instance lock so a restart can take over at once.
+            if self.instance_lock is not None:
+                self.instance_lock.release()
 
             self.logger.info("Shutdown complete. Exiting...")
             sys.exit(0)
@@ -276,14 +175,68 @@ class HydrusTelegramBot:
                 self.scheduler.schedule_update(self.on_scheduler)
 
 
-if __name__ == '__main__':
-    # Ensure single instance and unlock files if necessary
-    manage_pid_lock()
+def parse_args(argv=None):
+    """Parses command line arguments for the entry point."""
+    parser = argparse.ArgumentParser(description="Post images from Hydrus Network to a Telegram channel.")
+    parser.add_argument(
+        '--force', action='store_true',
+        help="Ask an already-running instance to shut down and take over from it.",
+    )
+    return parser.parse_args(argv)
 
-    # Main program loop.
-    app = HydrusTelegramBot()
-    # Start Telegram polling in a background thread
-    polling_thread = threading.Thread(target=app.telegram.poll_telegram_updates, args=(lambda: app.is_shutting_down,), daemon=True)
-    polling_thread.start()
-    app.on_scheduler()
-    app.scheduler.run()
+
+def acquire_instance_lock(force: bool, lock: InstanceLock) -> bool:
+    """
+    Takes the single-instance lock, optionally displacing a running instance.
+
+    Args:
+        force (bool): Ask the current holder to exit rather than refusing to start.
+        lock (InstanceLock): The lock to acquire.
+
+    Returns:
+        bool: True if this process may proceed.
+
+    Note:
+        Refusing is the default because the previous behaviour, silently killing
+        whatever process id was written in bot.pid, could terminate an unrelated
+        process that had reused that id. Use --force for the old take-over
+        behaviour; it is safe now because holding the lock proves the recorded pid
+        belongs to a live instance.
+    """
+    if lock.acquire():
+        return True
+
+    holder = lock.holder_pid()
+    if not force:
+        print(f"Another instance is already running (pid {holder}). "
+              f"Stop it first, or start with --force to take over.")
+        return False
+
+    print(f"Asking the running instance (pid {holder}) to shut down...")
+    if lock.terminate_holder(signal.SIGTERM):
+        print("Took over the lock.")
+        return True
+
+    print(f"Instance {holder} did not release the lock. Not starting.")
+    return False
+
+
+if __name__ == '__main__':
+    args = parse_args()
+
+    # Ensure only one instance runs against this directory.
+    instance_lock = InstanceLock('bot.lock')
+    if not acquire_instance_lock(args.force, instance_lock):
+        sys.exit(1)
+
+    try:
+        # Main program loop.
+        app = HydrusTelegramBot()
+        app.instance_lock = instance_lock
+        # Start Telegram polling in a background thread
+        polling_thread = threading.Thread(target=app.telegram.poll_telegram_updates, args=(lambda: app.is_shutting_down,), daemon=True)
+        polling_thread.start()
+        app.on_scheduler()
+        app.scheduler.run()
+    finally:
+        instance_lock.release()
