@@ -58,17 +58,49 @@ attacker-influenced input. Two layers guard that:
   nothing to redo after an ImageMagick upgrade. Set `MAGICK_CONFIGURE_PATH`
   yourself to override it.
 
-Installing the policy system-wide as well is optional, and only matters if you also
-run `magick` by hand outside the bot:
+### Optional: installing the policy system-wide
+
+**You do not need to do this.** The bot loads `config/magick/policy.xml` itself, so
+everything the bot decodes is already covered on every machine, including a fresh
+clone by a new user. This section is about hardening ImageMagick *outside* the bot.
+
+`scripts/install_imagemagick_policy.py` copies the bundled policy over your
+ImageMagick installation's own `policy.xml`, keeping a backup.
+
+**When it is worth running:**
+
+- You also run `magick` or `convert` by hand on the same machine, on files from the
+  internet. The bot's `MAGICK_CONFIGURE_PATH` only applies to the bot's own process.
+- Other software on the machine uses ImageMagick and you want one hardened policy
+  covering all of it.
+- You want defence in depth, so the hardening still applies if
+  `MAGICK_CONFIGURE_PATH` is ever overridden or the bundled file goes missing.
+
+**When to skip it:** you only ever touch ImageMagick through this bot. That is the
+common case, and the bundled policy already handles it.
 
 ```bash
-python3 scripts/install_imagemagick_policy.py           # show what would change
-python3 scripts/install_imagemagick_policy.py --apply   # install, keeping a backup
-python3 scripts/install_imagemagick_policy.py --revert  # restore the backup
+python3 scripts/install_imagemagick_policy.py            # dry run, changes nothing
+python3 scripts/install_imagemagick_policy.py --apply    # install, keeping a backup
+python3 scripts/install_imagemagick_policy.py --verify   # is hardening actually in force?
+python3 scripts/install_imagemagick_policy.py --revert   # restore the backup
 ```
 
-Note that a system-wide copy lives inside the ImageMagick install, so it must be
-reapplied after upgrades. The bundled copy does not.
+The script finds the real `policy.xml` via `magick -list policy` rather than guessing
+a path, and after installing it verifies the result by confirming ImageMagick
+actually refuses a denied coder. Writing to the ImageMagick install usually needs
+elevation: `sudo` on macOS and Linux, an Administrator PowerShell on Windows.
+
+Two caveats worth knowing:
+
+- A system-wide copy lives **inside the ImageMagick installation**, and on Homebrew
+  that path is version-pinned (`.../Cellar/imagemagick/7.1.2-31/etc/...`). A
+  `brew upgrade imagemagick` discards it and you must run the script again. The
+  bundled copy the bot uses is in this repository and is never affected by upgrades.
+- The policy denies the PDF, PostScript and scripting coders. That is correct for
+  this bot, but if other software on the machine legitimately needs ImageMagick to
+  read PDFs, installing it system-wide will break that. Use `--revert` if so.
+
 
 ## Developer workflows & common commands
 

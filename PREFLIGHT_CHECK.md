@@ -11,5 +11,7 @@ Run these checks before starting the bot in a new environment.
 - [ ] Run automated preflight: `python3 scripts/preflight_check.py` and resolve any warnings/errors.
 - [ ] Start bot: `python3 bot.py` and monitor `logs/log.log`.
 - [ ] ImageMagick hardening needs no action: the bot loads `config/magick/policy.xml`
-      itself. Optionally run `python3 scripts/install_imagemagick_policy.py --apply` to
-      install it system-wide too, which also covers `magick` run by hand.
+      itself, on every machine, with nothing to install.
+- [ ] Optional, only if you also run `magick` by hand on this machine:
+      `python3 scripts/install_imagemagick_policy.py` to preview, then `--apply` to
+      install the same policy system-wide. See the Hardening section of README.md.
