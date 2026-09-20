@@ -25,7 +25,6 @@ queue/*
 /venv/
 /.idea/
 /.vscode/
-/.github/
 
 # ----- Configuration files -----
 config/config.json
