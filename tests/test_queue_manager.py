@@ -476,3 +476,89 @@ class TestProcessQueueEndToEnd(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRunFfmpeg(unittest.TestCase):
+    """
+    Tests for QueueManager._run_ffmpeg().
+
+    Queued media is downloaded from the internet, so ffmpeg is parsing
+    attacker-influenced input and must not be able to run unbounded.
+    """
+
+    @patch.object(QueueManager, '__init__', lambda self, config, queue_file: None)
+    def setUp(self):
+        self.manager = QueueManager(None, None)
+        self.manager.logger = MagicMock()
+        self.manager.config = MagicMock()
+        self.manager.config.ffmpeg_timeout_seconds = 300
+
+    def test_passes_timeout_and_disables_stdin(self):
+        with patch('subprocess.run') as run:
+            self.manager._run_ffmpeg(["-i", "in.webm", "out.mp4"])
+
+        args, kwargs = run.call_args
+        self.assertEqual(300, kwargs['timeout'], "ffmpeg must be bounded by the configured timeout")
+        self.assertIn('-nostdin', args[0], "ffmpeg must not be able to consume the bot's stdin")
+        self.assertEqual('ffmpeg', args[0][0])
+        self.assertTrue(kwargs['check'])
+
+    def test_uses_configured_timeout(self):
+        self.manager.config.ffmpeg_timeout_seconds = 7
+        with patch('subprocess.run') as run:
+            self.manager._run_ffmpeg(["-i", "in.webm", "out.mp4"])
+        self.assertEqual(7, run.call_args.kwargs['timeout'])
+
+    def test_timeout_propagates_to_caller(self):
+        with patch('subprocess.run', side_effect=subprocess.TimeoutExpired('ffmpeg', 300)):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                self.manager._run_ffmpeg(["-i", "in.webm", "out.mp4"])
+        self.assertTrue(self.manager.logger.error.called)
+
+    def test_failure_logs_ffmpeg_stderr_tail(self):
+        err = subprocess.CalledProcessError(1, 'ffmpeg')
+        err.stderr = b"ffmpeg banner line\nInvalid data found when processing input\n"
+        with patch('subprocess.run', side_effect=err):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.manager._run_ffmpeg(["-i", "bad.webm", "out.mp4"])
+        logged = self.manager.logger.error.call_args.args[0]
+        self.assertIn("Invalid data found", logged)
+
+    def test_failure_without_stderr_does_not_crash(self):
+        err = subprocess.CalledProcessError(1, 'ffmpeg')
+        err.stderr = None
+        with patch('subprocess.run', side_effect=err):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.manager._run_ffmpeg(["-i", "bad.webm", "out.mp4"])
+
+
+class TestFfmpegTimeoutIsRecorded(unittest.TestCase):
+    """A timed-out conversion must be counted as a send failure, not escape the run."""
+
+    @patch.object(QueueManager, '__init__', lambda self, config, queue_file: None)
+    def setUp(self):
+        self.manager = QueueManager(None, None)
+        self.manager.logger = MagicMock()
+        self.manager.config = MagicMock()
+        self.manager.config.telegram_channel = -100
+        self.manager.config.max_post_attempts = 10
+        self.manager.config.ffmpeg_timeout_seconds = 300
+        self.manager.telegram = MagicMock()
+        self.manager.hydrus = MagicMock()
+        self.manager.load_queue = MagicMock()
+        self.manager.save_queue = MagicMock()
+        self.manager.delete_from_queue = MagicMock()
+        self.manager.record_send_failure = MagicMock()
+        self.manager.queue_data = {"queue": [{'path': 'hang.webm', 'file_id': 1}]}
+        self.manager.queue_loaded = True
+
+    def test_timeout_is_recorded_not_raised(self):
+        """
+        TimeoutExpired is not an OSError and is not a CalledProcessError, so a handler
+        catching only those would let it escape into the scheduler's retry loop.
+        """
+        with patch('subprocess.run', side_effect=subprocess.TimeoutExpired('ffmpeg', 300)):
+            self.manager.process_queue()
+
+        self.manager.record_send_failure.assert_called_once()
+        self.manager.delete_from_queue.assert_not_called()

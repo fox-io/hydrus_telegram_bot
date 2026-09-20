@@ -497,6 +497,45 @@ class QueueManager:
             f"⚠️ Nothing could be posted this run. Tried {len(attempted)} file(s) - check the log."
         )
 
+    def _run_ffmpeg(self, args: list):
+        """
+        Runs ffmpeg against a queued file with a timeout and no access to stdin.
+
+        Queued media is downloaded from the internet, so it is attacker-influenced.
+        Two consequences are guarded here:
+
+        - A crafted file can make ffmpeg run effectively forever. The bot posts from a
+          single thread, so that would wedge it indefinitely rather than just losing
+          one file. ffmpeg_timeout_seconds bounds each invocation.
+        - ffmpeg reads stdin by default and will happily consume the console's input,
+          which can leave an interactive terminal unusable. -nostdin disables that.
+
+        Args:
+            args (list): ffmpeg arguments, excluding the executable and global flags.
+
+        Raises:
+            subprocess.CalledProcessError: ffmpeg exited non-zero.
+            subprocess.TimeoutExpired: ffmpeg exceeded the configured timeout.
+        """
+        timeout = self.config.ffmpeg_timeout_seconds
+        try:
+            subprocess.run(
+                ["ffmpeg", "-nostdin", "-y", *args],
+                check=True,
+                timeout=timeout,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+        except subprocess.CalledProcessError as e:
+            # ffmpeg puts the actual reason on its last stderr line; the rest is banner.
+            detail = (e.stderr or b'').decode('utf-8', errors='replace').strip().splitlines()
+            if detail:
+                self.logger.error(f"ffmpeg failed: {detail[-1]}")
+            raise
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"ffmpeg exceeded its {timeout}s timeout and was killed.")
+            raise
+
     def _attempt_post(self, entry: dict, index: int) -> bool:
         """
         Attempts to post a single queued file to Telegram.
@@ -525,16 +564,16 @@ class QueueManager:
         try:
             if path.endswith(".webm"):
                 # Use ffmpeg to convert webm to mp4
-                subprocess.run(["ffmpeg", "-y", "-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"], check=True)
+                self._run_ffmpeg(["-i", path, "-c:v", "libx264", "-c:a", "aac", "-strict", "experimental", path + ".mp4"])
                 # Use ffmpeg to extract thumbnail from mp4
-                subprocess.run(["ffmpeg", "-y", "-i", path + ".mp4", "-vframes", "1", path + ".jpg"], check=True)
+                self._run_ffmpeg(["-i", path + ".mp4", "-vframes", "1", path + ".jpg"])
                 thumb_file = open(path + ".jpg", 'rb')
                 media_file = open(path + ".mp4", 'rb')
                 telegram_file = {'video': media_file, 'thumbnail': thumb_file}
                 api_method = 'sendVideo'
             elif path.endswith(".mp4"):
                 # Native mp4 file. Extract thumbnail and send as video.
-                subprocess.run(["ffmpeg", "-y", "-i", path, "-vframes", "1", path + ".jpg"], check=True)
+                self._run_ffmpeg(["-i", path, "-vframes", "1", path + ".jpg"])
                 thumb_file = open(path + ".jpg", 'rb')
                 media_file = open(path, 'rb')
                 telegram_file = {'video': media_file, 'thumbnail': thumb_file}
@@ -558,10 +597,12 @@ class QueueManager:
 
             # Post the image to Telegram.
             success = self.telegram.send_image(request, telegram_file, path)
-        except (OSError, subprocess.CalledProcessError) as e:
-            # A missing file or a failed ffmpeg conversion is a property of this file,
-            # not of the run. Counting it as a send failure lets an unusable file be
-            # dropped eventually instead of being redrawn from the queue forever.
+        except (OSError, subprocess.SubprocessError) as e:
+            # A missing file, a failed conversion or an ffmpeg timeout is a property of
+            # this file, not of the run. Counting it as a send failure lets an unusable
+            # file be dropped eventually instead of being redrawn from the queue forever.
+            # SubprocessError covers both CalledProcessError and TimeoutExpired; the
+            # latter is not an OSError and would otherwise escape into the scheduler.
             self.logger.error(f"Could not prepare {path} for sending: {e}")
             success = False
         finally:

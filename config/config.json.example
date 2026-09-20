@@ -9,6 +9,7 @@
   "failed_tag": "failed:telegram",
   "max_send_failures": 3,
   "max_post_attempts": 10,
+  "ffmpeg_timeout_seconds": 300,
   "delay": 60,
   "timezone": 0,
   "max_image_dimension": 10000,
