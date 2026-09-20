@@ -10,8 +10,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Mock wand before importing telegram_manager
 sys.modules['wand'] = MagicMock()
 sys.modules['wand.image'] = MagicMock()
+sys.modules['wand.resource'] = MagicMock()
 
-from modules.telegram_manager import TelegramManager
+from modules.telegram_manager import TelegramManager, imagemagick_limits
 
 
 class TestGetMessageMarkup(unittest.TestCase):
@@ -266,3 +267,93 @@ class TestBuildCaptionButtons(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestImagemagickLimits(unittest.TestCase):
+    """
+    Tests for imagemagick_limits().
+
+    ImageMagick decodes files downloaded from the internet. Its stock limits are
+    effectively unbounded (time and disk are the 64-bit maximum), which makes
+    decompression bombs cheap, so every limit the bot computes must be finite.
+    """
+
+    MAXINT64 = 2 ** 63 - 1
+
+    def test_memory_is_converted_from_mb_to_bytes(self):
+        self.assertEqual(256 * 1024 * 1024, imagemagick_limits(256, 60, 50000)['memory'])
+
+    def test_spill_limits_are_derived_from_memory(self):
+        v = imagemagick_limits(100, 60, 50000)
+        self.assertEqual(v['memory'] * 2, v['map'])
+        self.assertEqual(v['memory'] * 4, v['disk'])
+        self.assertEqual(v['memory'], v['area'])
+
+    def test_time_and_dimensions_pass_through(self):
+        v = imagemagick_limits(256, 45, 12345)
+        self.assertEqual(45, v['time'])
+        self.assertEqual(12345, v['width'])
+        self.assertEqual(12345, v['height'])
+
+    def test_single_threaded(self):
+        self.assertEqual(1, imagemagick_limits(256, 60, 50000)['thread'])
+
+    def test_every_limit_is_finite(self):
+        """The defaults this replaces include 64-bit-max time and disk limits."""
+        for key, value in imagemagick_limits(256, 60, 50000).items():
+            with self.subTest(limit=key):
+                self.assertLess(value, self.MAXINT64, f"{key} must be bounded")
+                self.assertGreater(value, 0, f"{key} must be positive")
+
+    def test_covers_the_limits_that_ship_unbounded(self):
+        keys = imagemagick_limits(256, 60, 50000).keys()
+        for key in ('time', 'disk', 'memory', 'map', 'area', 'width', 'height'):
+            self.assertIn(key, keys)
+
+
+class TestApplyImagemagickLimits(unittest.TestCase):
+    """Tests for TelegramManager.apply_imagemagick_limits()"""
+
+    @patch.object(TelegramManager, '__init__', lambda self, config: None)
+    def setUp(self):
+        self.manager = TelegramManager(None)
+        self.manager.logger = MagicMock()
+        self.manager.config = MagicMock()
+        self.manager.config.imagemagick_memory_limit_mb = 256
+        self.manager.config.imagemagick_time_limit_seconds = 60
+        self.manager.config.imagemagick_max_source_dimension = 50000
+
+    def test_applies_every_limit(self):
+        fake = {}
+        with patch('modules.telegram_manager.limits', fake):
+            self.manager.apply_imagemagick_limits()
+
+        self.assertEqual(imagemagick_limits(256, 60, 50000), fake)
+
+    def test_uses_configured_values(self):
+        self.manager.config.imagemagick_memory_limit_mb = 64
+        self.manager.config.imagemagick_time_limit_seconds = 5
+        self.manager.config.imagemagick_max_source_dimension = 999
+        fake = {}
+        with patch('modules.telegram_manager.limits', fake):
+            self.manager.apply_imagemagick_limits()
+
+        self.assertEqual(64 * 1024 * 1024, fake['memory'])
+        self.assertEqual(5, fake['time'])
+        self.assertEqual(999, fake['width'])
+
+    def test_unsupported_limit_is_logged_not_raised(self):
+        """An older ImageMagick rejecting one key must not stop the bot starting."""
+        class Picky(dict):
+            def __setitem__(self, key, value):
+                if key == 'area':
+                    raise ValueError("unsupported limit")
+                super().__setitem__(key, value)
+
+        fake = Picky()
+        with patch('modules.telegram_manager.limits', fake):
+            self.manager.apply_imagemagick_limits()
+
+        self.assertNotIn('area', fake)
+        self.assertIn('memory', fake, "other limits must still be applied")
+        self.assertTrue(self.manager.logger.warning.called)

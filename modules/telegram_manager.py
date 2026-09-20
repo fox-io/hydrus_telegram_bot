@@ -11,8 +11,42 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ReadTimeout, RequestException
 from urllib3.util.retry import Retry
 from wand.image import Image
+from wand.resource import limits
 
 from modules.log_manager import LogManager
+
+
+def imagemagick_limits(memory_mb: int, time_seconds: int, max_dimension: int) -> dict:
+    """
+    Computes the ImageMagick resource limits to apply.
+
+    Kept separate from applying them so the arithmetic can be tested without a
+    working ImageMagick install.
+
+    Args:
+        memory_mb (int): Megabytes of pixel cache before ImageMagick spills to disk.
+        time_seconds (int): Wall-clock ceiling for any single operation.
+        max_dimension (int): Largest width or height accepted from a source file.
+
+    Returns:
+        dict: Limit names mapped to their values, in the units ImageMagick expects
+              (bytes for memory/map/disk/area, seconds for time, pixels for
+              width/height).
+    """
+    memory_bytes = memory_mb * 1024 * 1024
+    return {
+        'memory': memory_bytes,
+        # Memory-mapped and on-disk spill are allowed to exceed the in-memory cache,
+        # but must still be bounded: disk is unlimited by default.
+        'map': memory_bytes * 2,
+        'disk': memory_bytes * 4,
+        'area': memory_bytes,
+        'time': time_seconds,
+        'width': max_dimension,
+        'height': max_dimension,
+        # The bot decodes one image at a time; extra threads only add contention.
+        'thread': 1,
+    }
 
 
 class TelegramManager:
@@ -60,7 +94,47 @@ class TelegramManager:
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.polling_session.mount("https://", adapter)
         self.polling_session.mount("http://", adapter)
+        self.apply_imagemagick_limits()
         self.logger.debug('Telegram Module initialized.')
+
+    def apply_imagemagick_limits(self):
+        """
+        Constrains what ImageMagick is allowed to spend decoding a queued file.
+
+        Queued media is downloaded from the internet, so ImageMagick is parsing
+        attacker-influenced input. Its stock limits are close to unbounded: on a
+        typical host `time` and `disk` are both the 64-bit maximum, and width and
+        height allow roughly 3.6e16 pixels per side. That makes a decompression bomb
+        cheap, since a small file can declare enormous dimensions and have the
+        decoder exhaust memory, fill the disk, or simply never finish.
+
+        Note:
+            These limits do not address the other ImageMagick risk, which is
+            delegate and coder abuse. That is controlled by policy.xml; see
+            config/imagemagick-policy.xml.
+
+            Failures here are logged rather than raised. An older ImageMagick that
+            rejects one of these keys should not stop the bot from starting.
+        """
+        values = imagemagick_limits(
+            self.config.imagemagick_memory_limit_mb,
+            self.config.imagemagick_time_limit_seconds,
+            self.config.imagemagick_max_source_dimension,
+        )
+        applied = []
+        for key, value in values.items():
+            try:
+                limits[key] = value
+            except Exception as e:
+                self.logger.warning(f"Could not set ImageMagick '{key}' limit: {e}")
+            else:
+                applied.append(key)
+        self.logger.debug(
+            f"Applied ImageMagick limits ({', '.join(applied)}): "
+            f"{self.config.imagemagick_memory_limit_mb} MB memory, "
+            f"{self.config.imagemagick_time_limit_seconds}s per operation, "
+            f"max {self.config.imagemagick_max_source_dimension}px per side."
+        )
 
     def _redact_token(self, text):
         """Redacts the bot token from a string to prevent it from appearing in logs."""

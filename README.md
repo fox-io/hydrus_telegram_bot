@@ -38,6 +38,23 @@ Currently supports image formats such as jpg and png. webp is partially supporte
 - Binary deps: `ffmpeg` for webm→mp4 conversion must be on `PATH`. ImageMagick must be installed for image transforms, but is loaded as a shared library by Wand rather than invoked from `PATH`.
 - Python packages: listed in `requirements.txt` (install via `pip install -r requirements.txt`). Key packages: `hydrus-api`, `Wand`, `requests`, `pydantic`.
 
+## Hardening
+
+Queued files are downloaded from the internet, so ImageMagick and `ffmpeg` decode
+attacker-influenced input. Two layers guard that:
+
+- **Resource limits, applied automatically.** The bot bounds ImageMagick's memory,
+  map, disk, area, time and maximum source dimensions at startup, and bounds every
+  `ffmpeg` invocation with a timeout. ImageMagick ships with `time` and `disk`
+  effectively unlimited, which makes decompression bombs cheap. Tunable via
+  `imagemagick_memory_limit_mb`, `imagemagick_time_limit_seconds`,
+  `imagemagick_max_source_dimension` and `ffmpeg_timeout_seconds`.
+- **`policy.xml`, installed manually.** Resource limits do nothing about ImageMagick's
+  coder and delegate handling, which is the class with a history of remote code
+  execution and SSRF. Copy `config/imagemagick-policy.xml` over your install's
+  `policy.xml` (find it with `magick -list policy`). The bot only needs to read and
+  resize ordinary raster images, so everything else is denied.
+
 ## Developer workflows & common commands
 
 - Setup (recommended in a venv):

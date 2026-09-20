@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hardened ImageMagick policy for hydrus_telegram_bot.
+
+  This file is NOT read from the repository. Copy it over your ImageMagick
+  installation's policy.xml:
+
+    macOS (Homebrew):  /opt/homebrew/etc/ImageMagick-7/policy.xml
+    Linux:             /etc/ImageMagick-7/policy.xml
+    Windows:           C:\Program Files\ImageMagick-7.x.x-Q16-HDRI\policy.xml
+
+  Confirm where your install actually looks with:
+    magick -list policy
+
+  Why this exists: the bot posts files downloaded from the internet, so
+  ImageMagick decodes attacker-influenced input. The resource limits the bot sets
+  at startup (see TelegramManager.apply_imagemagick_limits) cover exhaustion
+  attacks, but they do nothing about the coder and delegate classes below, which
+  are the ones with a history of remote code execution and file disclosure.
+
+  The bot only ever needs to read and resize ordinary raster images, so
+  everything else can be denied without affecting it.
+-->
+<policymap>
+  <!-- Coders that execute or fetch rather than decode pixels. The MSL and MVG
+       coders interpret scripting languages; URL/HTTPS/FTP make the decoder issue
+       network requests, which is an SSRF primitive. -->
+  <policy domain="coder" rights="none" pattern="MSL" />
+  <policy domain="coder" rights="none" pattern="MVG" />
+  <policy domain="coder" rights="none" pattern="URL" />
+  <policy domain="coder" rights="none" pattern="HTTPS" />
+  <policy domain="coder" rights="none" pattern="HTTP" />
+  <policy domain="coder" rights="none" pattern="FTP" />
+  <policy domain="coder" rights="none" pattern="EPHEMERAL" />
+  <policy domain="coder" rights="none" pattern="TEXT" />
+  <policy domain="coder" rights="none" pattern="SHOW" />
+  <policy domain="coder" rights="none" pattern="WIN" />
+  <policy domain="coder" rights="none" pattern="PLT" />
+  <policy domain="coder" rights="none" pattern="PS" />
+  <policy domain="coder" rights="none" pattern="PS2" />
+  <policy domain="coder" rights="none" pattern="PS3" />
+  <policy domain="coder" rights="none" pattern="EPS" />
+  <policy domain="coder" rights="none" pattern="PDF" />
+  <policy domain="coder" rights="none" pattern="XPS" />
+
+  <!-- Delegates shell out to external programs. The bot needs none of them. -->
+  <policy domain="delegate" rights="none" pattern="*" />
+
+  <!-- Indirect reads (@file syntax) let a crafted filename pull in local files. -->
+  <policy domain="path" rights="none" pattern="@*" />
+
+  <!-- Backstop resource limits. The bot also sets these at startup, but these
+       apply even to ImageMagick invoked outside the bot. -->
+  <policy domain="resource" name="memory" value="256MiB" />
+  <policy domain="resource" name="map" value="512MiB" />
+  <policy domain="resource" name="disk" value="1GiB" />
+  <policy domain="resource" name="area" value="256MP" />
+  <policy domain="resource" name="width" value="50KP" />
+  <policy domain="resource" name="height" value="50KP" />
+  <policy domain="resource" name="time" value="60" />
+  <policy domain="resource" name="thread" value="1" />
+</policymap>
