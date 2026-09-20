@@ -1,7 +1,11 @@
 import os
+import pathlib
+import shutil
 import sys
+import tempfile
 import unittest
 import urllib.parse
+import xml.etree.ElementTree as ET
 from unittest.mock import MagicMock, patch
 
 # Add the project root to the path
@@ -12,7 +16,11 @@ sys.modules['wand'] = MagicMock()
 sys.modules['wand.image'] = MagicMock()
 sys.modules['wand.resource'] = MagicMock()
 
-from modules.telegram_manager import TelegramManager, imagemagick_limits
+from modules.telegram_manager import (
+    TelegramManager,
+    imagemagick_limits,
+    use_bundled_imagemagick_policy,
+)
 
 
 class TestGetMessageMarkup(unittest.TestCase):
@@ -357,3 +365,75 @@ class TestApplyImagemagickLimits(unittest.TestCase):
         self.assertNotIn('area', fake)
         self.assertIn('memory', fake, "other limits must still be applied")
         self.assertTrue(self.manager.logger.warning.called)
+
+
+class TestUseBundledImagemagickPolicy(unittest.TestCase):
+    """
+    Tests for use_bundled_imagemagick_policy().
+
+    The bundled policy is what denies ImageMagick's scripting and network coders.
+    Without it ImageMagick will genuinely issue an outbound request for an image
+    that asks it to, so the variable must actually get set.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.policy_dir = pathlib.Path(self.tmp)
+
+    def _with_policy(self):
+        (self.policy_dir / "policy.xml").write_text("<policymap/>")
+        return self.policy_dir
+
+    def test_sets_the_variable_when_policy_exists(self):
+        env = {}
+        self.assertTrue(use_bundled_imagemagick_policy(self._with_policy(), env))
+        self.assertEqual(str(self.policy_dir), env["MAGICK_CONFIGURE_PATH"])
+
+    def test_does_not_override_an_operator_setting(self):
+        """Someone who pointed ImageMagick somewhere deliberately keeps that choice."""
+        env = {"MAGICK_CONFIGURE_PATH": "/operator/choice"}
+        self.assertFalse(use_bundled_imagemagick_policy(self._with_policy(), env))
+        self.assertEqual("/operator/choice", env["MAGICK_CONFIGURE_PATH"])
+
+    def test_no_op_when_policy_file_is_missing(self):
+        """A missing policy must not point ImageMagick at an empty directory."""
+        env = {}
+        self.assertFalse(use_bundled_imagemagick_policy(self.policy_dir, env))
+        self.assertNotIn("MAGICK_CONFIGURE_PATH", env)
+
+    def test_no_op_when_directory_is_missing(self):
+        env = {}
+        self.assertFalse(use_bundled_imagemagick_policy(self.policy_dir / "nope", env))
+        self.assertNotIn("MAGICK_CONFIGURE_PATH", env)
+
+
+class TestBundledPolicyFile(unittest.TestCase):
+    """The shipped policy.xml must stay parseable and keep denying the risky coders."""
+
+    @classmethod
+    def setUpClass(cls):
+        repo_root = pathlib.Path(__file__).resolve().parent.parent
+        cls.path = repo_root / "config" / "magick" / "policy.xml"
+        cls.root = ET.parse(cls.path).getroot()
+
+    def test_policy_ships_where_the_loader_expects_it(self):
+        from modules.telegram_manager import POLICY_DIR
+        self.assertEqual(POLICY_DIR / "policy.xml", self.path)
+
+    def test_is_valid_xml_without_the_broken_doctype(self):
+        """ImageMagick's stock DTD types attributes as NCName, which is not legal DTD."""
+        self.assertNotIn("<!DOCTYPE", self.path.read_text())
+
+    def test_denies_the_coders_with_rce_and_ssrf_history(self):
+        denied = {p.get("pattern") for p in self.root.findall("policy")
+                  if p.get("domain") == "coder" and p.get("rights") == "none"}
+        for coder in ("MSL", "MVG", "URL", "HTTPS", "HTTP", "FTP", "EPHEMERAL", "PS", "PDF"):
+            with self.subTest(coder=coder):
+                self.assertIn(coder, denied)
+
+    def test_denies_all_delegates_and_indirect_reads(self):
+        rules = {(p.get("domain"), p.get("pattern")): p.get("rights")
+                 for p in self.root.findall("policy")}
+        self.assertEqual("none", rules.get(("delegate", "*")))
+        self.assertEqual("none", rules.get(("path", "@*")))

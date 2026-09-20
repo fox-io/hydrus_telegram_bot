@@ -2,24 +2,30 @@
 <!--
   Hardened ImageMagick policy for hydrus_telegram_bot.
 
-  This file is NOT read from the repository. Copy it over your ImageMagick
-  installation's policy.xml:
+  The bot loads this file automatically: modules/telegram_manager.py points
+  MAGICK_CONFIGURE_PATH at this directory before importing Wand, so no manual
+  install is required on any machine. Set MAGICK_CONFIGURE_PATH yourself to
+  override that.
 
-    macOS (Homebrew):  /opt/homebrew/etc/ImageMagick-7/policy.xml
-    Linux:             /etc/ImageMagick-7/policy.xml
-    Windows:           C:\Program Files\ImageMagick-7.x.x-Q16-HDRI\policy.xml
-
-  Confirm where your install actually looks with:
-    magick -list policy
+  Installing it system-wide as well is optional, and only matters if you also run
+  `magick` by hand outside the bot. scripts/install_imagemagick_policy.py does
+  that, with a backup.
 
   Why this exists: the bot posts files downloaded from the internet, so
   ImageMagick decodes attacker-influenced input. The resource limits the bot sets
-  at startup (see TelegramManager.apply_imagemagick_limits) cover exhaustion
-  attacks, but they do nothing about the coder and delegate classes below, which
-  are the ones with a history of remote code execution and file disclosure.
+  at startup (TelegramManager.apply_imagemagick_limits) cover exhaustion attacks,
+  but do nothing about the coder and delegate classes below, which are the ones
+  with a history of remote code execution and SSRF. Without this policy,
+  ImageMagick will genuinely issue an outbound HTTP request for an image that
+  asks it to.
 
   The bot only ever needs to read and resize ordinary raster images, so
   everything else can be denied without affecting it.
+
+  Note: this deliberately omits the DOCTYPE that ImageMagick's stock policy.xml
+  carries. That DTD declares attributes as type NCName, which is not a legal DTD
+  attribute type, so strict XML parsers reject the file. ImageMagick does not
+  require it.
 -->
 <policymap>
   <!-- Coders that execute or fetch rather than decode pixels. The MSL and MVG

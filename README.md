@@ -49,11 +49,26 @@ attacker-influenced input. Two layers guard that:
   effectively unlimited, which makes decompression bombs cheap. Tunable via
   `imagemagick_memory_limit_mb`, `imagemagick_time_limit_seconds`,
   `imagemagick_max_source_dimension` and `ffmpeg_timeout_seconds`.
-- **`policy.xml`, installed manually.** Resource limits do nothing about ImageMagick's
-  coder and delegate handling, which is the class with a history of remote code
-  execution and SSRF. Copy `config/imagemagick-policy.xml` over your install's
-  `policy.xml` (find it with `magick -list policy`). The bot only needs to read and
-  resize ordinary raster images, so everything else is denied.
+- **A bundled `policy.xml`, loaded automatically.** Resource limits do nothing about
+  ImageMagick's coder and delegate handling, which is the class with a history of
+  remote code execution and SSRF. Without a policy, ImageMagick will genuinely make
+  an outbound HTTP request for an image that asks it to. The bot points
+  `MAGICK_CONFIGURE_PATH` at `config/magick/` before loading Wand, so
+  `config/magick/policy.xml` applies on every machine with nothing to install and
+  nothing to redo after an ImageMagick upgrade. Set `MAGICK_CONFIGURE_PATH`
+  yourself to override it.
+
+Installing the policy system-wide as well is optional, and only matters if you also
+run `magick` by hand outside the bot:
+
+```bash
+python3 scripts/install_imagemagick_policy.py           # show what would change
+python3 scripts/install_imagemagick_policy.py --apply   # install, keeping a backup
+python3 scripts/install_imagemagick_policy.py --revert  # restore the backup
+```
+
+Note that a system-wide copy lives inside the ImageMagick install, so it must be
+reapplied after upgrades. The bundled copy does not.
 
 ## Developer workflows & common commands
 

@@ -10,6 +10,6 @@ Run these checks before starting the bot in a new environment.
       preflight check verifies it by importing `wand.image` rather than looking for a binary.
 - [ ] Run automated preflight: `python3 scripts/preflight_check.py` and resolve any warnings/errors.
 - [ ] Start bot: `python3 bot.py` and monitor `logs/log.log`.
-- [ ] ImageMagick `policy.xml` hardened: copy `config/imagemagick-policy.xml` over the
-      path shown by `magick -list policy`. Guards against coder/delegate abuse, which the
-      bot's built-in resource limits do not cover.
+- [ ] ImageMagick hardening needs no action: the bot loads `config/magick/policy.xml`
+      itself. Optionally run `python3 scripts/install_imagemagick_policy.py --apply` to
+      install it system-wide too, which also covers `magick` run by hand.

@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import pathlib
 import re
 import time
 import urllib.parse
@@ -10,10 +11,56 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ReadTimeout, RequestException
 from urllib3.util.retry import Retry
-from wand.image import Image
-from wand.resource import limits
 
 from modules.log_manager import LogManager
+
+#: Directory holding the bundled ImageMagick policy.xml, relative to this file.
+POLICY_DIR = pathlib.Path(__file__).resolve().parent.parent / "config" / "magick"
+
+
+def use_bundled_imagemagick_policy(policy_dir=POLICY_DIR, env=None) -> bool:
+    """
+    Points ImageMagick at the policy.xml bundled with this repository.
+
+    ImageMagick's coder and delegate restrictions can only come from a policy.xml,
+    and it finds that file through MAGICK_CONFIGURE_PATH. Setting the variable here
+    means the restrictions apply on every machine with nothing to install, which
+    matters because the alternative is fragile: on Homebrew the real policy.xml
+    lives inside the version-pinned Cellar, so `brew upgrade imagemagick` silently
+    discards a hand-copied one.
+
+    Pointing at a directory containing only policy.xml is safe. ImageMagick falls
+    back to its installed configuration for everything else, so delegates still
+    resolve normally.
+
+    Args:
+        policy_dir (Path): Directory containing policy.xml.
+        env (MutableMapping): Environment to modify. Defaults to os.environ.
+
+    Returns:
+        bool: True if the variable was set, False if it was left alone.
+
+    Note:
+        An existing MAGICK_CONFIGURE_PATH is never overwritten, so an operator who
+        has pointed ImageMagick somewhere deliberately keeps that choice.
+
+        This must run before wand is imported: ImageMagick reads its configuration
+        when the library first loads, so setting the variable afterwards has no
+        effect. That is why the wand imports below sit after this call.
+    """
+    env = os.environ if env is None else env
+    if not (policy_dir / "policy.xml").is_file():
+        return False
+    if "MAGICK_CONFIGURE_PATH" in env:
+        return False
+    env["MAGICK_CONFIGURE_PATH"] = str(policy_dir)
+    return True
+
+
+use_bundled_imagemagick_policy()
+
+from wand.image import Image  # noqa: E402  (must follow the call above)
+from wand.resource import limits  # noqa: E402
 
 
 def imagemagick_limits(memory_mb: int, time_seconds: int, max_dimension: int) -> dict:
