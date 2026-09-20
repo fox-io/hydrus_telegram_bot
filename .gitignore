@@ -3,19 +3,17 @@
 # ----- AI rules -----
 AGENTS.md
 
-# ----- Queue (media + metadata) -----
-*.png
-*.jpeg
-*.jpg
-*.mp4
-*.webm
-*/queue.json
+# ----- Runtime artifacts -----
+bot.pid
 
 # ----- Logs folder -----
 logs/*
 !logs/.gitkeep
 
-# ----- Queue folder -----
+# ----- Queue folder (media + metadata) -----
+# queue/* already covers every queued file, so repo-wide *.png / *.jpg / *.mp4
+# globs are unnecessary here and would also swallow images added elsewhere,
+# such as screenshots in documentation.
 queue/*
 !queue/.gitkeep
 
