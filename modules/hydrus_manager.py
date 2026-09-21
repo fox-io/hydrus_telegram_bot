@@ -252,22 +252,26 @@ class HydrusManager:
         if not all_tagged_file_ids:
             self.logger.info("No new images found.")
             return
-        for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
-            for file_id in file_ids:
-                result = self.queue.save_image_to_queue(file_id)
+        # One write at the end of the batch rather than one per file: rewriting the
+        # whole queue for every imported file made import cost grow with the square
+        # of the queue size.
+        with self.queue.batched_saves():
+            for file_ids in hydrus_api.utils.yield_chunks(all_tagged_file_ids, 100):
+                for file_id in file_ids:
+                    result = self.queue.save_image_to_queue(file_id)
 
-                # Leave the queue tag in place so the file is picked up again next run.
-                if result is QueueResult.FAILED:
-                    num_failed += 1
-                    self.logger.warning(f"Not retagging file_id {file_id}; it was not added to the queue. It will be retried.")
-                    continue
+                    # Leave the queue tag in place so the file is picked up again next run.
+                    if result is QueueResult.FAILED:
+                        num_failed += 1
+                        self.logger.warning(f"Not retagging file_id {file_id}; it was not added to the queue. It will be retried.")
+                        continue
 
-                if result is QueueResult.ADDED:
-                    num_images += 1
+                    if result is QueueResult.ADDED:
+                        num_images += 1
 
-                self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "downloader_tags")
-                self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "my_tags")
-                self.modify_tag(file_id, self.config.posted_tag, hydrus_api.TagAction.ADD, "my_tags")
+                    self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "downloader_tags")
+                    self.modify_tag(file_id, self.config.queue_tag, hydrus_api.TagAction.DELETE, "my_tags")
+                    self.modify_tag(file_id, self.config.posted_tag, hydrus_api.TagAction.ADD, "my_tags")
         if num_failed > 0:
             self.logger.error(f"{num_failed} file(s) could not be added to the queue and will be retried next run.")
         if num_images > 0:

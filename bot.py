@@ -151,7 +151,9 @@ class HydrusTelegramBot:
         """ Runs a single update cycle with retry logic. """
         if self.is_shutting_down:
             return
-        self.queue.load_queue()
+        # Re-read once per run so an edit made to queue.json from outside the bot is
+        # picked up. Within the run the in-memory copy is authoritative.
+        self.queue.load_queue(force=True)
         self.hydrus.get_new_hydrus_files()
         self.queue.process_queue()
 

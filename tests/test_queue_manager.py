@@ -811,3 +811,88 @@ class TestCaptionPreservesTagText(unittest.TestCase):
         entry = self._enqueue(["creator:tom & jerry", "character:a <b> c"])
         fragment = f"<root>{entry['creator']}\n{entry['character']}</root>"
         ElementTree.fromstring(fragment)  # raises if the markup is malformed
+
+
+class TestBatchedSaves(unittest.TestCase):
+    """
+    Tests for QueueManager.batched_saves() and the loaded/dirty split.
+
+    queue_loaded previously meant two things at once: the in-memory copy has
+    unsaved changes, and the in-memory copy must be re-read. Because save_queue()
+    set it False after writing, a copy that had just been written to disk was
+    marked as needing a reload, so every save forced a pointless re-read. Importing
+    n files therefore rewrote and re-parsed the whole queue n times.
+    """
+
+    @patch.object(QueueManager, '__init__', lambda self, config, queue_file: None)
+    def setUp(self):
+        self.manager = QueueManager(None, None)
+        self.manager.logger = MagicMock()
+        self.manager.config = MagicMock()
+        self.manager.files = MagicMock()
+        self.manager.files.operation.return_value = {"queue": []}
+        self.manager.queue_file = 'queue/queue.json'
+        self.manager.queue_data = {"queue": []}
+        self.manager.queue_loaded = True
+        self.manager._defer_saves = False
+        self.manager._pending_save = False
+
+    def _writes(self):
+        return [c for c in self.manager.files.operation.call_args_list if 'w' in c.args[1]]
+
+    def test_save_leaves_the_queue_loaded(self):
+        """Memory matches disk after a write, so a reload would be wasted work."""
+        self.manager.save_queue()
+        self.assertTrue(self.manager.queue_loaded)
+
+    def test_batch_writes_once_not_per_save(self):
+        with self.manager.batched_saves():
+            for i in range(50):
+                self.manager.queue_data['queue'].append({'path': f'{i}.jpg'})
+                self.manager.save_queue()
+
+        self.assertEqual(1, len(self._writes()), "a batch must write exactly once")
+
+    def test_batch_writes_the_final_state(self):
+        with self.manager.batched_saves():
+            for i in range(10):
+                self.manager.queue_data['queue'].append({'path': f'{i}.jpg'})
+                self.manager.save_queue()
+
+        written = self._writes()[0].args[2]
+        self.assertEqual(10, len(written['queue']), "the write must contain every entry")
+
+    def test_batch_saves_even_when_the_block_raises(self):
+        """Work already done must not be lost."""
+        with self.assertRaises(RuntimeError):
+            with self.manager.batched_saves():
+                self.manager.queue_data['queue'].append({'path': 'a.jpg'})
+                self.manager.save_queue()
+                raise RuntimeError("boom")
+
+        self.assertEqual(1, len(self._writes()))
+
+    def test_batch_with_no_changes_writes_nothing(self):
+        with self.manager.batched_saves():
+            pass
+        self.assertEqual([], self._writes())
+
+    def test_deferring_ends_after_the_block(self):
+        with self.manager.batched_saves():
+            pass
+        self.manager.queue_data['queue'].append({'path': 'x.jpg'})
+        self.manager.save_queue()
+        self.assertEqual(1, len(self._writes()), "saves must write immediately again")
+
+    def test_load_uses_the_cached_copy(self):
+        self.manager.load_queue()
+        self.manager.files.operation.assert_not_called()
+
+    def test_force_reloads_from_disk(self):
+        """Preserves the documented workflow of editing queue.json by hand."""
+        self.manager.files.operation.return_value = {"queue": [{'path': 'edited.jpg'}]}
+
+        self.manager.load_queue(force=True)
+
+        self.manager.files.operation.assert_called_once()
+        self.assertEqual('edited.jpg', self.manager.queue_data['queue'][0]['path'])
