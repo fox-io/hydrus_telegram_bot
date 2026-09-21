@@ -346,6 +346,32 @@ class TestBuildCaptionButtons(unittest.TestCase):
         self.assertEqual(1, len(buttons))
         self.assertEqual(2, len(buttons[0]))
 
+    def test_button_layout_wraps_at_two_per_row(self):
+        """
+        Pins the column toggle across several rows.
+
+        The toggle was written as `url_column == 0 and 1 or 0`, which is correct
+        but obscures the intent, and the and/or form silently returns the wrong
+        branch whenever the middle value is falsy.
+        """
+        expected = {1: [1], 2: [2], 3: [2, 1], 4: [2, 2], 5: [2, 2, 1], 6: [2, 2, 2]}
+        for count, shape in expected.items():
+            with self.subTest(urls=count):
+                caption = ", ".join(f"https://e621.net/posts/{i}" for i in range(count))
+                rows = self.manager.build_caption_buttons(caption)['inline_keyboard']
+                self.assertEqual(shape, [len(row) for row in rows])
+
+    def test_every_url_gets_exactly_one_button(self):
+        """No link may be dropped or duplicated by the row bookkeeping."""
+        urls = [f"https://e621.net/posts/{i}" for i in range(7)]
+        rows = self.manager.build_caption_buttons(", ".join(urls))['inline_keyboard']
+        emitted = [button['url'] for row in rows for button in row]
+        self.assertEqual(urls, emitted)
+
+    def test_single_url_makes_one_row(self):
+        rows = self.manager.build_caption_buttons("https://e621.net/posts/1")['inline_keyboard']
+        self.assertEqual([1], [len(row) for row in rows])
+
     def test_no_http_links_returns_empty_keyboard(self):
         caption = "just some text without urls"
         result = self.manager.build_caption_buttons(caption)

@@ -379,7 +379,8 @@ class TelegramManager:
                             'text': website,
                             'url': url
                         })
-                        url_column = url_column == 0 and 1 or 0
+                        # Alternate between the two columns.
+                        url_column = 1 - url_column
             return keyboard
         else:
             return None
