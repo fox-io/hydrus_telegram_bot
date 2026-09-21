@@ -135,8 +135,14 @@ class TestConcatenateSauce(unittest.TestCase):
         self.assertEqual("", result)
 
 
-class TestReplaceHtmlEntities(unittest.TestCase):
-    """Tests for TelegramManager.replace_html_entities()"""
+class TestEscapeHtml(unittest.TestCase):
+    """
+    Tests for TelegramManager.escape_html()
+
+    Captions are sent with parse_mode=html, so characters that would be read as
+    markup must be escaped. The previous implementation substituted lookalike
+    characters instead, which rendered fine but silently changed the data.
+    """
 
     @patch.object(TelegramManager, '__init__', lambda self, config: None)
     def setUp(self):
@@ -144,22 +150,39 @@ class TestReplaceHtmlEntities(unittest.TestCase):
         self.manager.logger = MagicMock()
         self.manager.config = MagicMock()
 
-    def test_replaces_ampersand(self):
-        self.assertEqual("foo + bar", self.manager.replace_html_entities("foo & bar"))
+    def test_ampersand_is_escaped_not_replaced(self):
+        """The reported symptom: "Tom & Jerry" used to post as "Tom + Jerry"."""
+        self.assertEqual("Tom &amp; Jerry", self.manager.escape_html("Tom & Jerry"))
 
-    def test_replaces_angle_brackets(self):
-        result = self.manager.replace_html_entities("<tag>")
-        self.assertNotIn("<", result)
-        self.assertNotIn(">", result)
-        self.assertIn("\u227a", result)  # ≺
-        self.assertIn("\u227b", result)  # ≻
+    def test_angle_brackets_are_escaped(self):
+        self.assertEqual("&lt;tag&gt;", self.manager.escape_html("<tag>"))
 
-    def test_no_entities_unchanged(self):
-        self.assertEqual("plain text", self.manager.replace_html_entities("plain text"))
+    def test_data_survives_a_round_trip(self):
+        """Escaping must be reversible; the old substitution was not."""
+        import html as html_module
+        for original in ("Tom & Jerry", "a < b > c", "AT&T", "5 > 3 & 2 < 4", "plain"):
+            with self.subTest(text=original):
+                self.assertEqual(original, html_module.unescape(self.manager.escape_html(original)))
 
-    def test_multiple_entities(self):
-        result = self.manager.replace_html_entities("a & b < c > d")
-        self.assertEqual("a + b \u227a c \u227b d", result)
+    def test_lookalike_characters_are_not_used(self):
+        result = self.manager.escape_html("a & b < c > d")
+        self.assertNotIn("+", result)
+        self.assertNotIn("\u227a", result)
+        self.assertNotIn("\u227b", result)
+
+    def test_plain_text_is_unchanged(self):
+        self.assertEqual("plain text", self.manager.escape_html("plain text"))
+
+    def test_quotes_are_left_alone(self):
+        """This text goes between tags, never into an attribute."""
+        self.assertEqual("it's a \"quote\"", self.manager.escape_html('it\'s a "quote"'))
+
+    def test_none_passes_through(self):
+        self.assertIsNone(self.manager.escape_html(None))
+
+    def test_already_escaped_text_is_escaped_again(self):
+        """Documents that escaping is not idempotent, so it must be applied once."""
+        self.assertEqual("&amp;amp;", self.manager.escape_html("&amp;"))
 
 
 class TestBuildTelegramApiUrl(unittest.TestCase):

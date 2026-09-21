@@ -1,3 +1,4 @@
+import html
 import json
 import math
 import os
@@ -107,7 +108,7 @@ class TelegramManager:
     Methods:
         build_telegram_api_url(method, payload, is_file): Constructs a Telegram API url for bot communication.
         concatenate_sauce(known_urls): Return source URLs.
-        replace_html_entities(tag): Replace HTML entities in tags.
+        escape_html(text): Escape text for Telegram's HTML parse mode.
         build_caption_buttons(caption): Assembles buttons to display under the Telegram post.
         reduce_image_size(path): Telegram has limits on image file size and dimensions. We resize large things here.
         get_message_markup(image): Build the message markup for the Telegram post.
@@ -232,20 +233,30 @@ class TelegramManager:
                 urls.append(url)
         return ", ".join(urls)
 
-    def replace_html_entities(self, tag: str):
+    def escape_html(self, text):
         """
-        Replace problematic HTML entities in tags.
+        Escapes text for Telegram's HTML parse mode.
 
         Args:
-            tag (str): The tag to clean.
+            text (str): Text destined for a caption.
 
         Returns:
-            str: The cleaned tag.
+            str: The text with &, < and > replaced by their HTML entities.
+
+        Note:
+            This replaces replace_html_entities(), which substituted lookalike
+            characters rather than escaping: & became +, and < and > became the
+            Unicode characters PRECEDES and SUCCEEDS. Captions rendered without
+            error, but the data was silently altered, so an artist tagged
+            "Tom & Jerry" posted as "Tom + Jerry".
+
+            Quotes are left alone. This text is placed between tags, never inside
+            an attribute, so a literal quote is both safe and more readable. URLs
+            that do go into attributes are percent-encoded instead.
         """
-        tag = tag.replace("&", "+")
-        tag = tag.replace("<", "≺")
-        tag = tag.replace(">", "≻")
-        return tag
+        if text is None:
+            return text
+        return html.escape(str(text), quote=False)
 
     def build_caption_buttons(self, caption: str):
         """

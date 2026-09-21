@@ -350,30 +350,27 @@ class QueueManager:
 
             for tag in tags:
                 if tag.startswith("creator:"):
-                    tag = self.telegram.replace_html_entities(tag)
                     creator_tag = tag.split(":", 1)[1]
                     creator_name = creator_tag.replace(" (artist)", "")
-                    creator_name = self._proper_title(creator_name)
+                    creator_name = self.telegram.escape_html(self._proper_title(creator_name))
                     creator_urlencoded = creator_tag.replace(" ", "_")
                     creator_urlencoded = urllib.parse.quote(creator_urlencoded)
                     creator_markup = f"<a href=\"https://e621.net/posts?tags={creator_urlencoded}\">{creator_name}</a>"
                     creator = creator_markup if creator is None else creator + "\n" + creator_markup
 
                 elif tag.startswith("title:"):
-                    tag = self.telegram.replace_html_entities(tag)
                     title_tag = tag.split(":", 1)[1]
                     title_name = title_tag.replace(" (series)", "")
                     title_name = self._proper_title(title_name)
                     # Remove non-ASCII characters from title_name
                     title_name = ''.join(c for c in title_name if ord(c) < 128)
-                    title_markup = f"{title_name}"
+                    title_markup = self.telegram.escape_html(title_name)
                     title = title_markup if title is None else title + "\n" + title_markup
 
                 elif tag.startswith("character:"):
-                    tag = self.telegram.replace_html_entities(tag)
                     character_tag = tag.split(":", 1)[1]
                     character_name = character_tag.replace(" (character)", "")
-                    character_name = self._proper_title(character_name)
+                    character_name = self.telegram.escape_html(self._proper_title(character_name))
                     character_urlencoded = character_tag.replace(" ", "_")
                     character_urlencoded = urllib.parse.quote(character_urlencoded)
                     character_markup = f"<a href=\"https://e621.net/posts?tags={character_urlencoded}\">{character_name}</a>"

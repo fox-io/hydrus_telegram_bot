@@ -76,7 +76,7 @@ class TestSaveImageToQueue(unittest.TestCase):
         self.manager.hydrus.hydrus_service_key = {"downloader_tags": "DL", "my_tags": "MY"}
         self.manager.hydrus.get_file_content.return_value = b"image-bytes"
         self.manager.telegram = MagicMock()
-        self.manager.telegram.replace_html_entities.side_effect = lambda tag: tag
+        self.manager.telegram.escape_html.side_effect = lambda text: text
         self.manager.save_queue = MagicMock()
         self.manager.image_is_queued = MagicMock(return_value=False)
 
@@ -737,3 +737,77 @@ class TestUnsafeHydrusFilenameIsRejected(unittest.TestCase):
              patch('pathlib.Path.write_bytes') as write:
             self.assertIs(QueueResult.FAILED, self.manager.save_image_to_queue(1))
         write.assert_not_called()
+
+
+class TestCaptionPreservesTagText(unittest.TestCase):
+    """
+    Tag text must reach the caption unaltered.
+
+    The previous escaping replaced '&' with '+' and the angle brackets with
+    lookalike Unicode, so a creator tagged "tom & jerry" was posted as
+    "Tom + Jerry". Escaping is reversible; substitution is not.
+    """
+
+    @patch.object(QueueManager, '__init__', lambda self, config, queue_file: None)
+    def setUp(self):
+        self.manager = QueueManager(None, None)
+        self.manager.logger = MagicMock()
+        self.manager.config = MagicMock()
+        self.manager.queue_data = {"queue": []}
+        self.manager.queue_loaded = True
+        self.manager.hydrus = MagicMock()
+        self.manager.hydrus.hydrus_service_key = {"downloader_tags": "DL"}
+        self.manager.hydrus.get_file_content.return_value = b"bytes"
+        self.manager.save_queue = MagicMock()
+        self.manager.image_is_queued = MagicMock(return_value=False)
+
+        # Use the real escaping rather than a stub, since that is what is under test.
+        from modules.telegram_manager import TelegramManager
+        with patch.object(TelegramManager, '__init__', lambda s, c: None):
+            telegram = TelegramManager(None)
+        telegram.logger = MagicMock()
+        self.manager.telegram = telegram
+
+    def _enqueue(self, tags):
+        self.manager.hydrus.get_metadata.return_value = {
+            'metadata': [{'hash': 'abc123', 'ext': '.jpg', 'file_id': 1,
+                          'tags': {"DL": {"storage_tags": {"0": tags}}}}]
+        }
+        with patch('pathlib.Path.write_bytes'):
+            self.assertIs(QueueResult.ADDED, self.manager.save_image_to_queue(1))
+        return self.manager.queue_data['queue'][0]
+
+    def test_ampersand_in_creator_is_escaped_not_mangled(self):
+        entry = self._enqueue(["creator:tom & jerry"])
+        self.assertIn("&amp;", entry['creator'])
+        self.assertNotIn("Tom + Jerry", entry['creator'])
+        self.assertIn("Tom &amp; Jerry", entry['creator'])
+
+    def test_creator_text_round_trips(self):
+        import html as html_module
+        import re as re_module
+        entry = self._enqueue(["creator:tom & jerry"])
+        # Strip the anchor, then unescape: the original text must come back.
+        text = re_module.sub(r'<[^>]+>', '', entry['creator'])
+        self.assertEqual("Tom & Jerry", html_module.unescape(text))
+
+    def test_angle_brackets_in_character_are_escaped(self):
+        entry = self._enqueue(["character:a <b> c"])
+        self.assertIn("&lt;", entry['character'])
+        self.assertIn("&gt;", entry['character'])
+        self.assertNotIn("≺", entry['character'])
+
+    def test_ampersand_in_the_href_is_percent_encoded(self):
+        """The URL goes into an attribute, so it is encoded rather than escaped."""
+        entry = self._enqueue(["creator:tom & jerry"])
+        href = entry['creator'].split('href="')[1].split('"')[0]
+        self.assertIn("%26", href)
+        self.assertNotIn("&amp;", href)
+        self.assertNotIn(" ", href)
+
+    def test_generated_caption_is_parseable_html(self):
+        """A stray bare '&' would make Telegram reject the whole caption."""
+        import xml.etree.ElementTree as ElementTree
+        entry = self._enqueue(["creator:tom & jerry", "character:a <b> c"])
+        fragment = f"<root>{entry['creator']}\n{entry['character']}</root>"
+        ElementTree.fromstring(fragment)  # raises if the markup is malformed
