@@ -96,6 +96,14 @@ def imagemagick_limits(memory_mb: int, time_seconds: int, max_dimension: int) ->
     }
 
 
+#: Path suffixes that mark a URL as pointing at the file itself rather than at a page
+#: about it. Hydrus records both kinds in known_urls and only the pages are useful
+#: as sauce links.
+DIRECT_MEDIA_SUFFIXES = (
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.mp4', '.avif', '.swf', '.bmp',
+)
+
+
 class TelegramManager:
     """
     TelegramManager handles communication with the Telegram bot.
@@ -107,7 +115,7 @@ class TelegramManager:
 
     Methods:
         build_telegram_api_url(method, payload, is_file): Constructs a Telegram API url for bot communication.
-        concatenate_sauce(known_urls): Return source URLs.
+        concatenate_sauce(known_urls): Return source URLs, minus direct file links.
         escape_html(text): Escape text for Telegram's HTML parse mode.
         build_caption_buttons(caption): Assembles buttons to display under the Telegram post.
         reduce_image_size(path): Telegram has limits on image file size and dimensions. We resize large things here.
@@ -215,6 +223,37 @@ class TelegramManager:
 
 
     # noinspection PyMethodMayBeStatic
+    def is_source_page(self, url) -> bool:
+        """
+        Reports whether a URL points at a page about the file rather than the file.
+
+        Args:
+            url (str): A URL from Hydrus known_urls.
+
+        Returns:
+            bool: True if the URL is worth offering as a sauce link.
+
+        Note:
+            This used to be approximated by requiring the URL to start with
+            "https://www." or with the e621 posts path, which tested the wrong
+            property in both directions. It dropped real source pages that happen
+            not to use a www subdomain, such as furaffinity.net, x.com and
+            inkbunny.net, and it kept direct file links that do, such as
+            https://www.somecdn.com/files/image.jpg.
+
+            Judging by the path suffix matches the actual intent: skip links to the
+            media itself, keep everything else.
+        """
+        if not isinstance(url, str):
+            return False
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            return False
+        if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+            return False
+        return not parsed.path.lower().endswith(DIRECT_MEDIA_SUFFIXES)
+
     def concatenate_sauce(self, known_urls: list):
         """
         Joins source URLs.
@@ -224,14 +263,43 @@ class TelegramManager:
 
         Returns:
             str: A comma-separated list of source URLs.
+
+        Note:
+            Duplicates are collapsed. Hydrus frequently records the same page under
+            more than one form, differing only by scheme, a www prefix or a trailing
+            slash, which would otherwise produce several buttons pointing at the
+            same page. The first form seen is the one kept.
         """
-        # Return source URLs.
         urls = []
-        for url in known_urls:
-            # Skip direct links.
-            if url.startswith("https://www.") or url.startswith("https://e621.net/posts"):
-                urls.append(url)
+        seen = set()
+        for url in known_urls or []:
+            if not self.is_source_page(url):
+                continue
+            key = self._sauce_key(url)
+            if key in seen:
+                continue
+            seen.add(key)
+            urls.append(url)
         return ", ".join(urls)
+
+    @staticmethod
+    def _sauce_key(url: str):
+        """
+        Builds a comparison key that ignores cosmetic differences between URLs.
+
+        Args:
+            url (str): The URL to key.
+
+        Returns:
+            tuple: Host without any www prefix, path without a trailing slash, and
+                   the query. The scheme is ignored so http and https forms of one
+                   page collapse together.
+        """
+        parsed = urlparse(url)
+        host = parsed.netloc.lower()
+        if host.startswith('www.'):
+            host = host[4:]
+        return (host, parsed.path.rstrip('/').lower(), parsed.query)
 
     def escape_html(self, text):
         """

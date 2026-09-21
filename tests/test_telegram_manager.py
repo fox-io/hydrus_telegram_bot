@@ -88,7 +88,13 @@ class TestGetMessageMarkup(unittest.TestCase):
 
 
 class TestConcatenateSauce(unittest.TestCase):
-    """Tests for TelegramManager.concatenate_sauce()"""
+    """
+    Tests for TelegramManager.concatenate_sauce() and is_source_page()
+
+    The filter previously required a URL to start with "https://www." or the e621
+    posts path, which tested the wrong property. It dropped source pages that do
+    not use a www subdomain and kept direct file links that do.
+    """
 
     @patch.object(TelegramManager, '__init__', lambda self, config: None)
     def setUp(self):
@@ -96,43 +102,110 @@ class TestConcatenateSauce(unittest.TestCase):
         self.manager.logger = MagicMock()
         self.manager.config = MagicMock()
 
+    # --- pages that must be kept ---
+
+    def test_keeps_pages_without_a_www_subdomain(self):
+        """The main regression: these were all silently dropped."""
+        for url in ("https://furaffinity.net/view/12345/",
+                    "https://x.com/someone/status/123",
+                    "https://inkbunny.net/s/1234567",
+                    "https://e621.net/posts/456"):
+            with self.subTest(url=url):
+                self.assertTrue(self.manager.is_source_page(url))
+
+    def test_keeps_pages_with_a_www_subdomain(self):
+        self.assertTrue(self.manager.is_source_page("https://www.furaffinity.net/view/12345/"))
+
+    def test_keeps_http_pages(self):
+        """Old source URLs recorded over http are still useful links."""
+        self.assertTrue(self.manager.is_source_page("http://www.oldsite.com/view/1"))
+
+    def test_keeps_a_page_whose_path_merely_contains_an_extension(self):
+        self.assertTrue(self.manager.is_source_page("https://example.com/view/image.jpg/about"))
+
+    # --- direct file links that must be dropped ---
+
+    def test_drops_direct_media_links(self):
+        for url in ("https://static1.e621.net/data/ab/cd/abcd.jpg",
+                    "https://i.redd.it/abc123.png",
+                    "https://cdn.example.com/a.webm",
+                    "https://cdn.example.com/a.mp4"):
+            with self.subTest(url=url):
+                self.assertFalse(self.manager.is_source_page(url))
+
+    def test_drops_a_direct_link_that_has_a_www_subdomain(self):
+        """Previously kept, because the filter only looked at the prefix."""
+        self.assertFalse(self.manager.is_source_page("https://www.somecdn.com/files/image.jpg"))
+
+    def test_extension_match_is_case_insensitive(self):
+        self.assertFalse(self.manager.is_source_page("https://cdn.example.com/A.JPG"))
+
+    # --- malformed input ---
+
+    def test_rejects_unusable_values(self):
+        for value in ("", "not a url", "ftp://example.com/a", "/relative/path", None, 123):
+            with self.subTest(value=value):
+                self.assertFalse(self.manager.is_source_page(value))
+
+    # --- joining ---
+
     def test_returns_comma_separated_urls(self):
-        """Multiple matching URLs are joined with ', '."""
         urls = ["https://www.example.com/page1", "https://www.example.com/page2"]
-        result = self.manager.concatenate_sauce(urls)
-        self.assertEqual("https://www.example.com/page1, https://www.example.com/page2", result)
-
-    def test_no_trailing_comma(self):
-        """Result should not have a trailing comma."""
-        urls = ["https://www.example.com/page1"]
-        result = self.manager.concatenate_sauce(urls)
-        self.assertFalse(result.endswith(","))
-        self.assertEqual("https://www.example.com/page1", result)
-
-    def test_filters_non_matching_urls(self):
-        """URLs not starting with https://www. or https://e621.net/posts are excluded."""
-        urls = [
-            "https://www.furaffinity.net/view/123/",
-            "https://static1.e621.net/data/image.jpg",  # direct link, no match
-            "https://e621.net/posts/456",
-            "http://example.com/page",  # http, not https
-        ]
-        result = self.manager.concatenate_sauce(urls)
-        self.assertIn("furaffinity.net", result)
-        self.assertIn("e621.net/posts/456", result)
-        self.assertNotIn("static1.e621.net", result)
-        self.assertNotIn("http://example.com", result)
+        self.assertEqual("https://www.example.com/page1, https://www.example.com/page2",
+                         self.manager.concatenate_sauce(urls))
 
     def test_empty_list_returns_empty_string(self):
-        """Empty URL list returns empty string."""
-        result = self.manager.concatenate_sauce([])
-        self.assertEqual("", result)
+        self.assertEqual("", self.manager.concatenate_sauce([]))
+
+    def test_none_returns_empty_string(self):
+        self.assertEqual("", self.manager.concatenate_sauce(None))
 
     def test_all_filtered_returns_empty_string(self):
-        """When all URLs are filtered out, returns empty string."""
-        urls = ["https://static1.e621.net/data/image.jpg"]
-        result = self.manager.concatenate_sauce(urls)
-        self.assertEqual("", result)
+        self.assertEqual("", self.manager.concatenate_sauce(["https://static1.e621.net/data/image.jpg"]))
+
+    def test_no_trailing_comma(self):
+        result = self.manager.concatenate_sauce(["https://www.example.com/page1"])
+        self.assertFalse(result.endswith(","))
+
+    # --- deduplication ---
+
+    def test_collapses_www_and_bare_forms_of_one_page(self):
+        """Hydrus commonly records both, which would otherwise make two buttons."""
+        result = self.manager.concatenate_sauce([
+            "https://www.furaffinity.net/view/12345/",
+            "https://furaffinity.net/view/12345/",
+        ])
+        self.assertEqual("https://www.furaffinity.net/view/12345/", result)
+
+    def test_collapses_http_and_https_forms(self):
+        result = self.manager.concatenate_sauce([
+            "https://example.com/view/1", "http://example.com/view/1",
+        ])
+        self.assertEqual("https://example.com/view/1", result)
+
+    def test_collapses_a_trailing_slash_difference(self):
+        result = self.manager.concatenate_sauce([
+            "https://example.com/view/1", "https://example.com/view/1/",
+        ])
+        self.assertEqual("https://example.com/view/1", result)
+
+    def test_keeps_genuinely_different_pages(self):
+        result = self.manager.concatenate_sauce([
+            "https://example.com/view/1", "https://example.com/view/2",
+        ])
+        self.assertEqual(2, len(result.split(", ")))
+
+    def test_query_strings_distinguish_pages(self):
+        result = self.manager.concatenate_sauce([
+            "https://example.com/view?id=1", "https://example.com/view?id=2",
+        ])
+        self.assertEqual(2, len(result.split(", ")))
+
+    def test_preserves_input_order(self):
+        result = self.manager.concatenate_sauce([
+            "https://b.example.com/2", "https://a.example.com/1",
+        ])
+        self.assertEqual("https://b.example.com/2, https://a.example.com/1", result)
 
 
 class TestEscapeHtml(unittest.TestCase):
