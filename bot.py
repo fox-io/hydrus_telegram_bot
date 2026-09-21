@@ -207,12 +207,22 @@ def acquire_instance_lock(force: bool, lock: InstanceLock) -> bool:
         return True
 
     holder = lock.holder_pid()
+    described = f"pid {holder}" if holder is not None else "pid unknown"
+
     if not force:
-        print(f"Another instance is already running (pid {holder}). "
+        print(f"Another instance is already running ({described}). "
               f"Stop it first, or start with --force to take over.")
         return False
 
-    print(f"Asking the running instance (pid {holder}) to shut down...")
+    if holder is None:
+        # Nothing to signal. Say so plainly rather than reporting a failure to
+        # terminate a process that was never identified.
+        print(f"An instance holds {lock.path}, but its pid could not be read "
+              f"from {lock.pid_path}.")
+        print("Stop that instance yourself, then start again.")
+        return False
+
+    print(f"Asking the running instance ({described}) to shut down...")
     if lock.terminate_holder(signal.SIGTERM):
         print("Took over the lock.")
         return True

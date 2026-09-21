@@ -6,6 +6,7 @@ AGENTS.md
 # ----- Runtime artifacts -----
 bot.pid
 bot.lock
+bot.lock.pid
 
 # ----- Logs folder -----
 logs/*

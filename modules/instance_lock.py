@@ -22,11 +22,16 @@ class InstanceLock:
     - It cannot misidentify. Holding the lock is proof that a live process owns it,
       so the pid recorded inside the file is trustworthy rather than inferred.
 
-    The pid is written into the file purely for diagnostics, so an operator can see
-    which process is holding things up. Nothing keys off it except terminate_holder.
+    The pid is recorded in a companion file, never in the lock file itself. That
+    separation is required, not cosmetic: msvcrt byte-range locks on Windows are
+    mandatory, so a second process cannot read the bytes the holder has locked. With
+    the pid stored alongside the lock, every reader got PermissionError and saw no
+    pid at all, which left --force unable to identify who to ask to stand down.
+    fcntl.flock on POSIX is advisory and would not have shown this.
 
     Attributes:
-        path (Path): The lock file location.
+        path (Path): The lock file location. Locked, never read.
+        pid_path (Path): Companion file holding the holder's pid. Read, never locked.
 
     Example:
         >>> lock = InstanceLock('bot.lock')
@@ -40,6 +45,7 @@ class InstanceLock:
             path (str): Lock file path, relative to the working directory.
         """
         self.path = Path(path)
+        self.pid_path = Path(str(self.path) + '.pid')
         self._handle = None
 
     def acquire(self) -> bool:
@@ -59,6 +65,13 @@ class InstanceLock:
 
         try:
             handle = open(self.path, 'a+')
+            # Windows locks a byte range rather than the whole file, so give that
+            # range something to exist in. Harmless on POSIX, where flock is
+            # whole-file regardless.
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write('.')
+                handle.flush()
         except OSError:
             return False
 
@@ -69,16 +82,14 @@ class InstanceLock:
             handle.close()
             return False
 
+        self._handle = handle
+
         try:
-            handle.seek(0)
-            handle.truncate()
-            handle.write(str(os.getpid()))
-            handle.flush()
+            self.pid_path.write_text(str(os.getpid()))
         except OSError:
-            # The lock is held even if the diagnostic write fails, so keep going.
+            # The lock is held regardless; only the diagnostic pid is lost.
             pass
 
-        self._handle = handle
         return True
 
     def release(self):
@@ -98,21 +109,27 @@ class InstanceLock:
         finally:
             self._handle.close()
             self._handle = None
-        try:
-            self.path.unlink()
-        except OSError:
-            pass
+        for path in (self.path, self.pid_path):
+            try:
+                path.unlink()
+            except OSError:
+                pass
 
     def holder_pid(self):
         """
-        Reads the pid recorded in the lock file.
+        Reads the pid recorded by whoever holds the lock.
 
         Returns:
             int: The pid of the process holding the lock, or None if it cannot be
                  read. Only meaningful while the lock is actually held by someone.
+
+        Note:
+            Reads the companion file, never the lock file. On Windows the lock file's
+            bytes are unreadable to anyone but the holder, so reading it here would
+            always yield None from the process that actually needs the answer.
         """
         try:
-            content = self.path.read_text().strip()
+            content = self.pid_path.read_text().strip()
         except OSError:
             return None
         try:

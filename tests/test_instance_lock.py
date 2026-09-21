@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -142,3 +143,69 @@ class TestInstanceLock(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPidIsReadableWhileLocked(unittest.TestCase):
+    """
+    The holder's pid must be readable by a second process while the lock is held.
+
+    Windows msvcrt byte-range locks are mandatory: a second process cannot read the
+    bytes the holder has locked. Storing the pid inside the lock file therefore made
+    holder_pid() return None on Windows, which left --force with nothing to signal.
+    fcntl.flock on POSIX is advisory, so this only reproduced on Windows.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.path = os.path.join(self.tmp, 'bot.lock')
+
+    def test_pid_lives_outside_the_locked_file(self):
+        """Pins the fix: the readable pid must not share a file with the lock."""
+        lock = InstanceLock(self.path)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        self.assertNotEqual(lock.path, lock.pid_path)
+        self.assertTrue(lock.pid_path.exists())
+        self.assertEqual(str(os.getpid()), lock.pid_path.read_text().strip())
+
+    def test_holder_pid_does_not_read_the_lock_file(self):
+        """
+        Reading the lock file is what fails on Windows, so it must not be read.
+
+        Making the lock file unreadable stands in for the Windows mandatory-lock
+        behaviour, which cannot be reproduced on POSIX.
+        """
+        lock = InstanceLock(self.path)
+        self.addCleanup(lock.release)
+        lock.acquire()
+
+        with patch.object(Path, 'read_text', autospec=True) as read_text:
+            def only_pid_file_is_readable(self_path, *a, **kw):
+                if self_path == lock.path:
+                    raise PermissionError("lock file bytes are not readable")
+                return str(os.getpid())
+            read_text.side_effect = only_pid_file_is_readable
+
+            self.assertEqual(os.getpid(), lock.holder_pid())
+
+    def test_release_removes_both_files(self):
+        lock = InstanceLock(self.path)
+        lock.acquire()
+        lock.release()
+        self.assertFalse(lock.path.exists())
+        self.assertFalse(lock.pid_path.exists())
+
+    def test_second_process_can_read_the_holders_pid(self):
+        """The end-to-end property --force depends on."""
+        proc = subprocess.Popen(
+            [sys.executable, "-c", HOLDER.format(root=str(REPO_ROOT), path=self.path)],
+            stdout=subprocess.PIPE, text=True,
+        )
+        self.addCleanup(lambda: (proc.poll() is None) and (proc.kill(), proc.wait()))
+        self.assertEqual("HELD", proc.stdout.readline().strip())
+
+        observer = InstanceLock(self.path)
+        self.assertFalse(observer.acquire(), "precondition: lock is held")
+        self.assertEqual(proc.pid, observer.holder_pid())
