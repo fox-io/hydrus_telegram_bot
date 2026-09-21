@@ -139,3 +139,44 @@ class TestNoProcessScanningRemains(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestConfigManagerRequiresAFile(unittest.TestCase):
+    """The same half-built-object defect existed in ConfigManager."""
+
+    def test_missing_config_file_argument_raises(self):
+        from modules.config_manager import ConfigManager
+        with self.assertRaises(ValueError):
+            ConfigManager('')
+
+
+class TestConfigModelRejectsEmptyCredentials(unittest.TestCase):
+    """
+    Empty credentials are never valid and should fail validation, not later.
+
+    Catching it here means one clear message from the config layer instead of a
+    ValueError from TelegramManager or an opaque API rejection from Hydrus.
+    """
+
+    @staticmethod
+    def _valid():
+        return {
+            'telegram_access_token': '123:abc', 'telegram_channel': -100,
+            'telegram_bot_id': 1, 'hydrus_api_key': 'key', 'queue_tag': 'q',
+            'posted_tag': 'p', 'admins': [1], 'delay': 60, 'timezone': 0,
+            'max_image_dimension': 10000, 'max_file_size': 10000000, 'log_level': 20,
+        }
+
+    def test_valid_config_still_passes(self):
+        from modules.config_manager import ConfigModel
+        self.assertEqual('123:abc', ConfigModel(**self._valid()).telegram_access_token)
+
+    def test_empty_required_strings_are_rejected(self):
+        from pydantic import ValidationError
+
+        from modules.config_manager import ConfigModel
+        for field in ('telegram_access_token', 'hydrus_api_key', 'queue_tag', 'posted_tag'):
+            with self.subTest(field=field):
+                data = self._valid() | {field: ''}
+                with self.assertRaises(ValidationError):
+                    ConfigModel(**data)

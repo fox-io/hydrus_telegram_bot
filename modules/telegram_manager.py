@@ -124,12 +124,19 @@ class TelegramManager:
 
         Args:
             config (ConfigManager): The configuration settings for the bot.
+
+        Raises:
+            ValueError: No Telegram access token was configured.
         """
         self.logger = LogManager.setup_logger('TEL')
         self.config = config.config_data
         if not self.config.telegram_access_token:
+            # Returning here would leave self.token undefined, so every later call
+            # raised AttributeError far from the actual cause. _redact_token is the
+            # worst of them: it is used in the handler for other failures, so the
+            # missing token masked whatever error was being reported.
             self.logger.error('No Telegram token was provided.')
-            return
+            raise ValueError('telegram_access_token is required')
         self.token = self.config.telegram_access_token
         self.polling_session = requests.Session()
         retry_strategy = Retry(
@@ -158,7 +165,7 @@ class TelegramManager:
         Note:
             These limits do not address the other ImageMagick risk, which is
             delegate and coder abuse. That is controlled by policy.xml; see
-            config/imagemagick-policy.xml.
+            config/magick/policy.xml, which the bot loads automatically.
 
             Failures here are logged rather than raised. An older ImageMagick that
             rejects one of these keys should not stop the bot from starting.

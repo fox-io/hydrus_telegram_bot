@@ -437,3 +437,36 @@ class TestBundledPolicyFile(unittest.TestCase):
                  for p in self.root.findall("policy")}
         self.assertEqual("none", rules.get(("delegate", "*")))
         self.assertEqual("none", rules.get(("path", "@*")))
+
+
+class TestTelegramManagerRequiresToken(unittest.TestCase):
+    """
+    A missing token must fail loudly at construction.
+
+    Returning from __init__ left self.token undefined, so the failure surfaced
+    later as an AttributeError from whichever method ran first. _redact_token was
+    the worst case: it is called from the handler for other failures, so a missing
+    token masked whatever error was actually being reported.
+    """
+
+    def _config(self, token):
+        config = MagicMock()
+        config.config_data = MagicMock()
+        config.config_data.telegram_access_token = token
+        return config
+
+    def test_empty_token_raises(self):
+        with self.assertRaises(ValueError):
+            TelegramManager(self._config(''))
+
+    def test_none_token_raises(self):
+        with self.assertRaises(ValueError):
+            TelegramManager(self._config(None))
+
+    def test_no_half_built_object_is_returned(self):
+        """The object must not exist at all rather than exist without a token."""
+        try:
+            manager = TelegramManager(self._config(''))
+        except ValueError:
+            return
+        self.fail(f"construction should have failed, got {manager!r}")

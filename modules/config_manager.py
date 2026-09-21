@@ -48,12 +48,12 @@ class ConfigModel(BaseModel):
         ... )
     """
 
-    telegram_access_token: str = Field(..., title='Telegram Bot Access Token', description='The Telegram bot access token.')
+    telegram_access_token: str = Field(..., min_length=1, title='Telegram Bot Access Token', description='The Telegram bot access token.')
     telegram_channel: int = Field(..., title='Telegram Channel ID', description='The Telegram channel ID.')
     telegram_bot_id: int = Field(..., title='Telegram Bot ID', description='The Telegram bot ID.')
-    hydrus_api_key: str = Field(..., title='Hydrus API Key', description='The Hydrus API key.')
-    queue_tag: str = Field(..., title='Queue Tag', description='The tag to use for searching Hydrus for files to queue.')
-    posted_tag: str = Field(..., title='Posted Tag', description='The tag to use for marking files as posted in Hydrus.')
+    hydrus_api_key: str = Field(..., min_length=1, title='Hydrus API Key', description='The Hydrus API key.')
+    queue_tag: str = Field(..., min_length=1, title='Queue Tag', description='The tag to use for searching Hydrus for files to queue.')
+    posted_tag: str = Field(..., min_length=1, title='Posted Tag', description='The tag to use for marking files as posted in Hydrus.')
     failed_tag: str = Field('failed:telegram', title='Failed Tag', description='The tag to use for marking files that could not be sent to Telegram.')
     max_send_failures: int = Field(3, ge=1, title='Max Send Failures', description='How many times a queued file may fail to send before it is dropped from the queue.')
     max_post_attempts: int = Field(10, ge=1, title='Max Post Attempts', description='How many different queued files to try in a single run before giving up on posting anything that run.')
@@ -95,14 +95,19 @@ class ConfigManager:
             config_file (str): The name of the configuration file to load.
                               Should be located in the 'config/' directory.
 
+        Raises:
+            ValueError: No config file name was given.
+
         Note:
             If the config file is missing or invalid, the program will exit
             with an error code.
         """
         self.logger = LogManager.setup_logger('CON')
         if not config_file:
+            # Returning here would leave self.config_data undefined, turning a clear
+            # configuration error into an AttributeError somewhere further along.
             self.logger.error('Missing config file argument.')
-            return
+            raise ValueError('config_file is required')
         self.config_file = config_file
         self.config_data = self.load_config()
         self.logger.debug('Config Module initialized.')
