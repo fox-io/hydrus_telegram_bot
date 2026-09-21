@@ -5,7 +5,6 @@ import shutil
 import sys
 import tempfile
 import unittest
-import urllib.parse
 import xml.etree.ElementTree as ET
 from unittest.mock import MagicMock, patch
 
