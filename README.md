@@ -58,6 +58,31 @@ attacker-influenced input. Two layers guard that:
   nothing to redo after an ImageMagick upgrade. Set `MAGICK_CONFIGURE_PATH`
   yourself to override it.
 
+### Keeping credentials out of the config file
+
+`config/config.json` holds a Telegram bot token and a Hydrus API key in plain text.
+At default permissions (`0644`) both are readable by every account on the machine.
+
+Either restrict the file:
+
+```bash
+chmod 600 config/config.json
+```
+
+or supply the credentials through the environment instead, in which case they can
+be omitted from the file entirely:
+
+| Variable | Overrides |
+|---|---|
+| `HYDRUS_TELEGRAM_BOT_TOKEN` | `telegram_access_token` |
+| `HYDRUS_TELEGRAM_BOT_HYDRUS_API_KEY` | `hydrus_api_key` |
+
+An environment value takes precedence over the file, and the bot logs which
+variables it used. `preflight_check.py` accepts a config file without those keys
+when the matching variables are set, and warns if the file is readable by others.
+
+Only the two credentials can be set this way; everything else belongs in the file.
+
 ### Optional: installing the policy system-wide
 
 **You do not need to do this.** The bot loads `config/magick/policy.xml` itself, so

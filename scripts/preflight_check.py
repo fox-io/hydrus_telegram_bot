@@ -14,6 +14,7 @@ Exit codes:
 import json
 import os
 import shutil
+import stat
 import sys
 
 REQ_KEYS = [
@@ -21,6 +22,14 @@ REQ_KEYS = [
     'hydrus_api_key', 'queue_tag', 'posted_tag', 'delay', 'timezone',
     'max_image_dimension', 'max_file_size', 'log_level'
 ]
+
+# Must match ENV_OVERRIDES in modules/config_manager.py. Duplicated rather than
+# imported because this script is deliberately stdlib-only, so it can run before
+# the dependencies are installed.
+ENV_OVERRIDES = {
+    'telegram_access_token': 'HYDRUS_TELEGRAM_BOT_TOKEN',
+    'hydrus_api_key': 'HYDRUS_TELEGRAM_BOT_HYDRUS_API_KEY',
+}
 
 PY_MODULES = [
     ('hydrus_api', 'hydrus_api'),
@@ -97,7 +106,10 @@ def check_config():
         print(f"FAIL: Could not parse {path}: {e}")
         return False
 
-    missing = [k for k in REQ_KEYS if k not in cfg]
+    # A credential supplied through the environment does not need to be in the file.
+    from_env = [field for field, variable in ENV_OVERRIDES.items() if os.environ.get(variable)]
+
+    missing = [k for k in REQ_KEYS if k not in cfg and k not in from_env]
     if missing:
         print(f"FAIL: Missing config keys: {missing}")
         return False
@@ -107,7 +119,21 @@ def check_config():
         print("FAIL: 'admins' should be a list of Telegram user ids.")
         return False
 
+    for field in from_env:
+        print(f"Config: '{field}' supplied by {ENV_OVERRIDES[field]}")
+
     print("Config: OK")
+
+    # The file holds credentials in plain text, so 0644 exposes them to every
+    # account on the machine. Not applicable on Windows.
+    if os.name != 'nt':
+        try:
+            mode = os.stat(path).st_mode
+        except OSError:
+            mode = 0
+        if mode & (stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH):
+            print(f"WARNING: {path} is readable by other accounts. Restrict it: chmod 600 {path}")
+
     return True
 
 

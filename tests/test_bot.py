@@ -180,3 +180,89 @@ class TestConfigModelRejectsEmptyCredentials(unittest.TestCase):
                 data = self._valid() | {field: ''}
                 with self.assertRaises(ValidationError):
                     ConfigModel(**data)
+
+
+class TestEnvOverrides(unittest.TestCase):
+    """
+    Tests for apply_env_overrides().
+
+    Lets the Telegram token and Hydrus API key be supplied without ever being
+    written to disk, so config/config.json can hold no credentials at all.
+    """
+
+    @staticmethod
+    def _apply(data, env):
+        from modules.config_manager import apply_env_overrides
+        return apply_env_overrides(data, env)
+
+    def test_token_is_taken_from_the_environment(self):
+        data, applied = self._apply({'telegram_access_token': 'from-file'},
+                                    {'HYDRUS_TELEGRAM_BOT_TOKEN': 'from-env'})
+        self.assertEqual('from-env', data['telegram_access_token'])
+        self.assertEqual(['HYDRUS_TELEGRAM_BOT_TOKEN'], applied)
+
+    def test_hydrus_key_is_taken_from_the_environment(self):
+        data, applied = self._apply({}, {'HYDRUS_TELEGRAM_BOT_HYDRUS_API_KEY': 'k'})
+        self.assertEqual('k', data['hydrus_api_key'])
+        self.assertIn('HYDRUS_TELEGRAM_BOT_HYDRUS_API_KEY', applied)
+
+    def test_file_value_is_kept_when_no_variable_is_set(self):
+        data, applied = self._apply({'telegram_access_token': 'from-file'}, {})
+        self.assertEqual('from-file', data['telegram_access_token'])
+        self.assertEqual([], applied)
+
+    def test_empty_variable_does_not_override(self):
+        """An empty variable is a mistake, not an instruction to blank the token."""
+        data, _ = self._apply({'telegram_access_token': 'from-file'},
+                              {'HYDRUS_TELEGRAM_BOT_TOKEN': ''})
+        self.assertEqual('from-file', data['telegram_access_token'])
+
+    def test_only_credentials_are_overridable(self):
+        from modules.config_manager import ENV_OVERRIDES
+        self.assertEqual({'telegram_access_token', 'hydrus_api_key'}, set(ENV_OVERRIDES))
+
+    def test_config_without_credentials_validates_from_env(self):
+        from modules.config_manager import ConfigModel
+        base = {
+            'telegram_channel': -100, 'telegram_bot_id': 1, 'queue_tag': 'q',
+            'posted_tag': 'p', 'admins': [1], 'delay': 60, 'timezone': 0,
+            'max_image_dimension': 10000, 'max_file_size': 10000000, 'log_level': 20,
+        }
+        merged, _ = self._apply(dict(base), {
+            'HYDRUS_TELEGRAM_BOT_TOKEN': 'tok',
+            'HYDRUS_TELEGRAM_BOT_HYDRUS_API_KEY': 'key',
+        })
+        self.assertEqual('tok', ConfigModel(**merged).telegram_access_token)
+
+
+class TestConfigPermissionCheck(unittest.TestCase):
+    """The config file holds credentials in plain text, so 0644 exposes them."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.path = os.path.join(self.tmp, 'config.json')
+        Path(self.path).write_text('{}')
+
+    @staticmethod
+    def _check(path):
+        from modules.config_manager import config_is_readable_by_others
+        return config_is_readable_by_others(path)
+
+    @unittest.skipIf(os.name == 'nt', "POSIX mode bits do not describe Windows permissions")
+    def test_world_readable_is_flagged(self):
+        os.chmod(self.path, 0o644)
+        self.assertTrue(self._check(self.path))
+
+    @unittest.skipIf(os.name == 'nt', "POSIX mode bits do not describe Windows permissions")
+    def test_group_readable_is_flagged(self):
+        os.chmod(self.path, 0o640)
+        self.assertTrue(self._check(self.path))
+
+    @unittest.skipIf(os.name == 'nt', "POSIX mode bits do not describe Windows permissions")
+    def test_owner_only_is_not_flagged(self):
+        os.chmod(self.path, 0o600)
+        self.assertFalse(self._check(self.path))
+
+    def test_missing_file_is_not_flagged(self):
+        self.assertFalse(self._check(os.path.join(self.tmp, 'nope.json')))

@@ -1,9 +1,68 @@
 import json
+import os
+import stat
 import sys
 
 from pydantic import BaseModel, Field, ValidationError
 
 from modules.log_manager import LogManager
+
+#: Environment variables that override the matching config file value.
+#: Deliberately limited to the two credentials. Everything else is unremarkable and
+#: belongs in the file, where it is easier to see and change.
+ENV_OVERRIDES = {
+    'telegram_access_token': 'HYDRUS_TELEGRAM_BOT_TOKEN',
+    'hydrus_api_key': 'HYDRUS_TELEGRAM_BOT_HYDRUS_API_KEY',
+}
+
+
+def apply_env_overrides(config_data: dict, env=None):
+    """
+    Overlays credential values taken from the environment.
+
+    Lets the secrets be supplied without ever being written to disk, so
+    config/config.json can be kept free of credentials entirely. Applied before
+    validation, so a file that omits them is still valid when the environment
+    supplies them.
+
+    Args:
+        config_data (dict): Raw config values read from the file.
+        env (Mapping): Environment to read. Defaults to os.environ.
+
+    Returns:
+        tuple: The config data, and the list of variable names that were applied.
+    """
+    env = os.environ if env is None else env
+    applied = []
+    for field, variable in ENV_OVERRIDES.items():
+        value = env.get(variable)
+        if value:
+            config_data[field] = value
+            applied.append(variable)
+    return config_data, applied
+
+
+def config_is_readable_by_others(path) -> bool:
+    """
+    Reports whether the config file is readable or writable beyond its owner.
+
+    The file holds a Telegram bot token and a Hydrus API key in plain text, so
+    default 0644 permissions expose both to every account on the machine.
+
+    Args:
+        path (str): Path to the config file.
+
+    Returns:
+        bool: True if group or other has any access. Always False on Windows,
+              where POSIX mode bits do not describe the real permissions.
+    """
+    if os.name == 'nt':
+        return False
+    try:
+        mode = os.stat(path).st_mode
+    except OSError:
+        return False
+    return bool(mode & (stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH))
 
 
 class ConfigModel(BaseModel):
@@ -132,10 +191,22 @@ class ConfigManager:
             The config file should be located in the 'config/' directory
             relative to the current working directory.
         """
+        path = 'config/' + self.config_file
         try:
-            with open('config/' + self.config_file, encoding='utf-8') as config:
+            with open(path, encoding='utf-8') as config:
                 config_data = json.load(config)
-                return ConfigModel(**config_data)
+
+            config_data, from_env = apply_env_overrides(config_data)
+            for variable in from_env:
+                self.logger.info(f"Using {variable} from the environment.")
+
+            if config_is_readable_by_others(path):
+                self.logger.warning(
+                    f"{path} is readable by other accounts on this machine and holds "
+                    f"credentials in plain text. Restrict it with: chmod 600 {path}"
+                )
+
+            return ConfigModel(**config_data)
         except (FileNotFoundError, json.JSONDecodeError):
             self.logger.error("Required file 'config.json' is missing or corrupted. Create a copy of config/config.json.example as config/config.json and provide values matching your environment.")
             # Cannot continue.
