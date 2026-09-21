@@ -63,13 +63,31 @@ attacker-influenced input. Two layers guard that:
 `config/config.json` holds a Telegram bot token and a Hydrus API key in plain text.
 At default permissions (`0644`) both are readable by every account on the machine.
 
-Either restrict the file:
+Either restrict the file to your account only.
+
+macOS and Linux:
 
 ```bash
 chmod 600 config/config.json
 ```
 
-or supply the credentials through the environment instead, in which case they can
+Windows PowerShell:
+
+```powershell
+takeown /F "config\config.json"
+icacls "config\config.json" /inheritance:r
+icacls "config\config.json" /grant:r "$($env:USERNAME):(R,W)"
+icacls "config\config.json"        # confirm: only your account should be listed
+```
+
+`/inheritance:r` drops the inherited entries that grant access to broader groups,
+and `/grant:r` replaces rather than adds. The final listing should show a single
+entry for your own account. Note that this also removes `SYSTEM`, so if you ever
+run the bot as a Windows service you will need to grant it back, or use the
+environment variables below instead. Local administrators can still take ownership
+of the file, exactly as `root` can read a `chmod 600` file.
+
+Alternatively, supply the credentials through the environment, in which case they can
 be omitted from the file entirely:
 
 | Variable | Overrides |

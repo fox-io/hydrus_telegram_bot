@@ -1,3 +1,4 @@
+import json
 import os
 import pathlib
 import shutil
@@ -24,84 +25,67 @@ from modules.telegram_manager import (
 
 
 class TestGetMessageMarkup(unittest.TestCase):
-    """Tests for TelegramManager.get_message_markup()"""
+    """
+    Tests for TelegramManager.get_message_markup()
+
+    Returns form field values now, not a pre-encoded query fragment. Nothing is
+    quoted by hand: requests encodes the values when posting them.
+    """
 
     @patch.object(TelegramManager, '__init__', lambda self, config: None)
     def setUp(self):
         """Set up a TelegramManager instance with mocked dependencies."""
         self.manager = TelegramManager(None)
-        # Set up minimal required attributes
         self.manager.logger = MagicMock()
         self.manager.config = MagicMock()
 
-    def test_url_encodes_caption_with_special_characters(self):
-        """Caption with special characters (&, <, >) is URL-encoded correctly."""
+    def test_special_characters_are_left_unencoded(self):
+        """The caption is a value, so &, < and > travel through verbatim."""
         image = {
             "title": "Test & Title <with> special chars",
             "creator": "Artist & Co.",
         }
 
-        result = self.manager.get_message_markup(image)
+        fields = self.manager.get_message_markup(image)
 
-        # Verify the caption is URL-encoded
-        self.assertIn("&caption=", result)
-        # Extract and decode the caption to verify content
-        caption_encoded = result.split("&caption=")[1]
-        caption_decoded = urllib.parse.unquote(caption_encoded)
-        self.assertIn("Test & Title <with> special chars", caption_decoded)
-        self.assertIn("Artist & Co.", caption_decoded)
-        # Verify special characters are encoded in the URL
-        self.assertIn("%26", caption_encoded)  # & encoded
-        self.assertIn("%3C", caption_encoded)  # < encoded
-        self.assertIn("%3E", caption_encoded)  # > encoded
+        self.assertIn("Test & Title <with> special chars", fields['caption'])
+        self.assertIn("Artist & Co.", fields['caption'])
+        self.assertNotIn("%26", fields['caption'], "values must not be pre-encoded")
 
-    def test_url_encodes_simple_caption(self):
-        """Simple caption without special characters is URL-encoded correctly."""
-        image = {
-            "title": "Simple Title",
-            "creator": "SimpleArtist",
-        }
-
-        result = self.manager.get_message_markup(image)
-
-        self.assertIn("&caption=", result)
-        caption_encoded = result.split("&caption=")[1]
-        caption_decoded = urllib.parse.unquote(caption_encoded)
-        self.assertIn("Simple Title", caption_decoded)
-        self.assertIn("SimpleArtist", caption_decoded)
+    def test_simple_caption(self):
+        fields = self.manager.get_message_markup({"title": "Simple Title", "creator": "SimpleArtist"})
+        self.assertIn("Simple Title", fields['caption'])
+        self.assertIn("SimpleArtist", fields['caption'])
 
     def test_handles_empty_caption(self):
-        """Image with no title/creator/character results in 'No info.' caption."""
-        image = {}
+        self.assertEqual("No info.", self.manager.get_message_markup({})['caption'])
 
-        result = self.manager.get_message_markup(image)
+    def test_truncates_long_caption(self):
+        """Telegram rejects captions over 1024 characters."""
+        image = {"title": "A" * 500, "creator": "B" * 500, "character": "C" * 500}
 
-        self.assertIn("&caption=", result)
-        caption_encoded = result.split("&caption=")[1]
-        caption_decoded = urllib.parse.unquote(caption_encoded)
-        self.assertEqual("No info.", caption_decoded)
+        caption = self.manager.get_message_markup(image)['caption']
 
-    def test_truncates_long_caption_before_url_encoding(self):
-        """Caption longer than 1024 characters is truncated before URL encoding."""
-        # Create a long caption that exceeds 1024 characters
-        long_title = "A" * 500
-        long_creator = "B" * 500
-        long_character = "C" * 500
-        image = {
-            "title": long_title,
-            "creator": long_creator,
-            "character": long_character,
-        }
+        self.assertLessEqual(len(caption), 1024)
+        self.assertTrue(caption.endswith("..."))
 
-        result = self.manager.get_message_markup(image)
+    def test_reply_markup_is_a_json_string(self):
+        """Telegram expects reply_markup as JSON text, not a nested object."""
+        self.manager.build_caption_buttons = MagicMock(return_value={'inline_keyboard': [[{'text': 'e621', 'url': 'https://e621.net/posts/1'}]]})
 
-        # Extract and decode the caption
-        caption_encoded = result.split("&caption=")[1]
-        caption_decoded = urllib.parse.unquote(caption_encoded)
-        # Verify it's truncated to 1024 characters or less
-        self.assertLessEqual(len(caption_decoded), 1024)
-        # Verify it ends with "..."
-        self.assertTrue(caption_decoded.endswith("..."))
+        fields = self.manager.get_message_markup({"sauce": "https://e621.net/posts/1"})
+
+        self.assertIsInstance(fields['reply_markup'], str)
+        self.assertEqual({'inline_keyboard': [[{'text': 'e621', 'url': 'https://e621.net/posts/1'}]]},
+                         json.loads(fields['reply_markup']))
+
+    def test_no_reply_markup_without_sauce(self):
+        self.assertNotIn('reply_markup', self.manager.get_message_markup({"title": "T"}))
+
+    def test_returns_only_known_fields(self):
+        self.manager.build_caption_buttons = MagicMock(return_value={'inline_keyboard': [[]]})
+        fields = self.manager.get_message_markup({"sauce": "x", "title": "T"})
+        self.assertEqual({'caption', 'reply_markup'}, set(fields))
 
 
 class TestConcatenateSauce(unittest.TestCase):

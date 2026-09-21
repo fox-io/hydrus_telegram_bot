@@ -467,7 +467,7 @@ class TestProcessQueueEndToEnd(unittest.TestCase):
             {'path': 'bad.jpg', 'file_id': 1},
             {'path': 'good.jpg', 'file_id': 2},
         ]}
-        self.manager.telegram.send_image.side_effect = lambda req, files, path: path == 'queue/good.jpg'
+        self.manager.telegram.send_image.side_effect = lambda method, fields, files, path: path == 'queue/good.jpg'
 
         with patch('builtins.open', MagicMock()), patch('os.remove'), \
              patch('random.choice', lambda seq: seq[0]):

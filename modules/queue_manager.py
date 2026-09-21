@@ -686,12 +686,13 @@ class QueueManager:
                 telegram_file = {'photo': media_file}
                 api_method = 'sendPhoto'
 
-            # Build Telegram bot API URL.
-            message = self.telegram.get_message_markup(entry)
-            request = self.telegram.build_telegram_api_url(api_method, '?chat_id=' + str(channel) + message + '&parse_mode=html', False)
+            # Assemble the form fields for the post.
+            fields = self.telegram.get_message_markup(entry)
+            fields['chat_id'] = channel
+            fields['parse_mode'] = 'html'
 
             # Post the image to Telegram.
-            success = self.telegram.send_image(request, telegram_file, path)
+            success = self.telegram.send_image(api_method, fields, telegram_file, path)
         except (OSError, subprocess.SubprocessError) as e:
             # A missing file, a failed conversion or an ffmpeg timeout is a property of
             # this file, not of the run. Counting it as a send failure lets an unusable

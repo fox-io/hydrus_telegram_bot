@@ -4,7 +4,6 @@ import os
 import pathlib
 import re
 import time
-import urllib.parse
 from urllib.parse import urlparse
 
 import requests
@@ -356,23 +355,29 @@ class TelegramManager:
             self.logger.error(f"Could not open the image: {e}")
             return False
 
-    def get_message_markup(self, image):
+    def get_message_markup(self, image) -> dict:
         """
-        Build the message markup for the Telegram post.
+        Builds the Telegram form fields describing a post.
 
         Args:
             image (dict): The image data to post.
 
         Returns:
-            str: The message markup for the Telegram post.
+            dict: Form fields to send with the upload. Values are plain strings;
+                  requests handles encoding them.
+
+        Note:
+            These used to be returned as a pre-encoded query string fragment that
+            the caller concatenated into a URL. Returning values means nothing has
+            to be quoted by hand, and a field added later cannot be forgotten.
         """
-        message_markup = ''
+        fields = {}
 
         # Sauce Buttons
         sauce = self.build_caption_buttons(image['sauce']) if "sauce" in image else None
         if sauce:
-            # URL-encode the JSON to prevent "can't parse reply keyboard markup" errors
-            message_markup = message_markup + '&reply_markup=' + urllib.parse.quote(json.dumps(sauce))
+            fields['reply_markup'] = json.dumps(sauce)
+
         # Caption Text
         caption_parts = []
         #     Title
@@ -388,9 +393,9 @@ class TelegramManager:
         # Do not let captions be longer than 1024 characters (max Telegram bot limit).
         if len(caption) > 1024:
             caption = caption[:1021].rsplit('\n', 1)[0] + "..."
-        message_markup += f"&caption={urllib.parse.quote(caption)}"
+        fields['caption'] = caption
 
-        return message_markup
+        return fields
 
     def api_request(self, api_call, payload):
         """
@@ -405,8 +410,8 @@ class TelegramManager:
         """
         if api_call == 'sendMessage':
             try:
-                url = self.build_telegram_api_url(api_call, "?" + urllib.parse.urlencode(payload))
-                response = requests.get(url, timeout=10)
+                url = self.build_telegram_api_url(api_call, '')
+                response = requests.get(url, params=payload, timeout=10)
                 response_json = response.json()
                 if not response_json.get("ok", False):
                     self.logger.error(f"Failed to send message: {response_json}")
@@ -427,18 +432,26 @@ class TelegramManager:
             payload = {'chat_id': str(admin), 'text': message, 'parse_mode': 'Markdown'}
             self.api_request('sendMessage', payload)
 
-    def send_image(self, api_call, image, path):
+    def send_image(self, api_call, fields, image, path):
         """
         Sends an image to a Telegram bot with retry logic.
 
         Args:
-            api_call (str): The API call to make.
-            image (dict): The image data to send.
-            path (str): The path to the image file.
+            api_call (str): The API method to call, such as sendPhoto.
+            fields (dict): Form fields to accompany the upload, such as chat_id,
+                           caption and parse_mode.
+            image (dict): Open file handles to upload, keyed by Telegram field name.
+            path (str): The path to the image file, used for logging.
 
         Returns:
             bool: True if the image was sent successfully, False otherwise.
+
+        Note:
+            Fields are posted as multipart form data rather than appended to the
+            URL. Telegram accepts either, and passing them as data leaves the
+            encoding to requests instead of to hand-written quoting.
         """
+        url = self.build_telegram_api_url(api_call, '')
         max_retries = 3
         timeouts = [10, 20, 30]
 
@@ -453,7 +466,7 @@ class TelegramManager:
                         file_obj.seek(0)
 
                 self.logger.debug(f"Attempting to send {path} (attempt {attempt + 1}/{max_retries}, timeout={timeout}s)")
-                sent_file = requests.post(api_call, files=image, timeout=timeout)
+                sent_file = requests.post(url, data=fields, files=image, timeout=timeout)
 
                 if sent_file.status_code != 200:
                     self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
