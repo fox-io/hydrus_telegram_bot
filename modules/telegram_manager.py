@@ -330,16 +330,27 @@ class TelegramManager:
         """
         Assembles buttons to display under the Telegram post.
 
+        A Comments button is prepended as the first row when
+        telegram_comments_link is configured, so the native "Leave a comment"
+        link is never hidden by inline buttons.
+
         Args:
             caption (str): The caption to parse.
 
         Returns:
             dict: The keyboard for the Telegram post.
         """
+        keyboard = {'inline_keyboard': []}
+
+        if self.config.telegram_comments_link:
+            keyboard['inline_keyboard'].append([{
+                'text': '💬 Comments',
+                'url': self.config.telegram_comments_link,
+            }])
+
         if caption is not None:
-            keyboard = {'inline_keyboard': []}
             url_column = 0
-            url_row = -1
+            url_row = len(keyboard['inline_keyboard']) - 1
             for line in caption.split(','):
                 line = line.strip()
                 if 'http' in line:
@@ -381,9 +392,10 @@ class TelegramManager:
                         })
                         # Alternate between the two columns.
                         url_column = 1 - url_column
+
+        if keyboard['inline_keyboard']:
             return keyboard
-        else:
-            return None
+        return None
 
     def reduce_image_size(self, path):
         """
@@ -453,8 +465,8 @@ class TelegramManager:
         """
         fields = {}
 
-        # Sauce Buttons
-        sauce = self.build_caption_buttons(image['sauce']) if "sauce" in image else None
+        # Sauce Buttons (and Comments button when configured)
+        sauce = self.build_caption_buttons(image.get('sauce'))
         if sauce:
             fields['reply_markup'] = json.dumps(sauce)
 
