@@ -333,6 +333,12 @@ class TestBuildCaptionButtons(unittest.TestCase):
         self.assertEqual(1, len(buttons))
         self.assertEqual('e621', buttons[0][0]['text'])
 
+    def test_patreon_url_gets_label(self):
+        caption = "https://www.patreon.com/posts/123"
+        result = self.manager.build_caption_buttons(caption)
+        buttons = result['inline_keyboard']
+        self.assertEqual('Patreon', buttons[0][0]['text'])
+
     def test_reddit_url_with_subreddit(self):
         caption = "https://www.reddit.com/r/aww/comments/abc123"
         result = self.manager.build_caption_buttons(caption)

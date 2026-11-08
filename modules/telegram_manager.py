@@ -374,6 +374,8 @@ class TelegramManager:
                             self.logger.error(f"An error occurred when checking the Furaffinity link: {e}")
                     elif 'e621' in link.netloc:
                         website = 'e621'
+                    elif 'patreon' in link.netloc:
+                        website = 'Patreon'
                     elif 'reddit' in link.netloc:
                         subreddit_match = re.search(self.subreddit_regex, link.geturl(), re.IGNORECASE)
                         website = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
