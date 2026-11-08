@@ -397,11 +397,11 @@ class TestBuildCommentsLink(unittest.TestCase):
 
     def test_strips_minus_100_prefix(self):
         self.manager.config.telegram_channel = -1001234567890
-        self.assertEqual('https://t.me/c/1234567890/42', self.manager.build_comments_link(42))
+        self.assertEqual('https://t.me/c/1234567890/42?comment', self.manager.build_comments_link(42))
 
     def test_plain_channel_id(self):
         self.manager.config.telegram_channel = 1234567890
-        self.assertEqual('https://t.me/c/1234567890/42', self.manager.build_comments_link(42))
+        self.assertEqual('https://t.me/c/1234567890/42?comment', self.manager.build_comments_link(42))
 
 
 if __name__ == "__main__":

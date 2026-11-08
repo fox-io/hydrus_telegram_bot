@@ -599,7 +599,7 @@ class TelegramManager:
         channel_id = str(self.config.telegram_channel)
         if channel_id.startswith('-100'):
             channel_id = channel_id[4:]
-        return f"https://t.me/c/{channel_id}/{message_id}"
+        return f"https://t.me/c/{channel_id}/{message_id}?comment"
 
     def edit_reply_markup(self, chat_id: str, message_id: int, reply_markup: dict) -> bool:
         """
