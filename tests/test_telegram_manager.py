@@ -79,8 +79,7 @@ class TestGetMessageMarkup(unittest.TestCase):
         self.assertEqual({'inline_keyboard': [[{'text': 'e621', 'url': 'https://e621.net/posts/1'}]]},
                          json.loads(fields['reply_markup']))
 
-    def test_no_reply_markup_without_sauce_or_comments(self):
-        self.manager.config.telegram_comments_link = ''
+    def test_no_reply_markup_without_sauce(self):
         self.assertNotIn('reply_markup', self.manager.get_message_markup({"title": "T"}))
 
     def test_returns_only_known_fields(self):
@@ -385,30 +384,24 @@ class TestBuildCaptionButtons(unittest.TestCase):
         result = self.manager.build_caption_buttons("just some text without urls")
         self.assertIsNone(result)
 
-    # --- Comments button ---
 
-    def test_comments_button_prepended_when_configured(self):
-        self.manager.config.telegram_comments_link = 'https://t.me/+test'
-        result = self.manager.build_caption_buttons("https://e621.net/posts/1")
-        rows = result['inline_keyboard']
-        self.assertEqual('💬 Comments', rows[0][0]['text'])
-        self.assertEqual('https://t.me/+test', rows[0][0]['url'])
-        self.assertEqual('e621', rows[1][0]['text'])
 
-    def test_comments_button_alone_when_no_sauce(self):
-        self.manager.config.telegram_comments_link = 'https://t.me/+test'
-        result = self.manager.build_caption_buttons(None)
-        self.assertIsNotNone(result)
-        rows = result['inline_keyboard']
-        self.assertEqual(1, len(rows))
-        self.assertEqual('💬 Comments', rows[0][0]['text'])
+class TestBuildCommentsLink(unittest.TestCase):
+    """Tests for TelegramManager.build_comments_link()"""
 
-    def test_sauce_layout_unchanged_with_comments(self):
-        """Sauce buttons still pair two per row after the comments row."""
-        self.manager.config.telegram_comments_link = 'https://t.me/+test'
-        caption = ", ".join(f"https://e621.net/posts/{i}" for i in range(3))
-        rows = self.manager.build_caption_buttons(caption)['inline_keyboard']
-        self.assertEqual([1, 2, 1], [len(row) for row in rows])
+    @patch.object(TelegramManager, '__init__', lambda self, config: None)
+    def setUp(self):
+        self.manager = TelegramManager(None)
+        self.manager.logger = MagicMock()
+        self.manager.config = MagicMock()
+
+    def test_strips_minus_100_prefix(self):
+        self.manager.config.telegram_channel = -1001234567890
+        self.assertEqual('https://t.me/c/1234567890/42', self.manager.build_comments_link(42))
+
+    def test_plain_channel_id(self):
+        self.manager.config.telegram_channel = 1234567890
+        self.assertEqual('https://t.me/c/1234567890/42', self.manager.build_comments_link(42))
 
 
 if __name__ == "__main__":

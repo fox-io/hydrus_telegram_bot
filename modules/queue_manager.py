@@ -1,4 +1,5 @@
 import contextlib
+import json
 import os
 import pathlib
 import random
@@ -722,7 +723,8 @@ class QueueManager:
             fields['parse_mode'] = 'html'
 
             # Post the image to Telegram.
-            success = self.telegram.send_image(api_method, fields, telegram_file, path)
+            message_id = self.telegram.send_image(api_method, fields, telegram_file, path)
+            success = message_id is not None
         except (OSError, subprocess.SubprocessError) as e:
             # A missing file, a failed conversion or an ffmpeg timeout is a property of
             # this file, not of the run. Counting it as a send failure lets an unusable
@@ -742,6 +744,19 @@ class QueueManager:
 
         # Only delete the image from disk and queue if it was sent successfully.
         if success:
+            # Edit the post to add a Comments button linking to this post's
+            # comment thread, so the link is always visible even when other
+            # inline buttons are present.
+            if self.telegram.config.telegram_comments_link and message_id:
+                comments_url = self.telegram.build_comments_link(message_id)
+                markup = fields.get('reply_markup')
+                keyboard = json.loads(markup) if markup else {'inline_keyboard': []}
+                keyboard['inline_keyboard'].insert(0, [{
+                    'text': '💬 Comments',
+                    'url': comments_url,
+                }])
+                self.telegram.edit_reply_markup(channel, message_id, keyboard)
+
             self.delete_from_queue(path, index)
             return True
 

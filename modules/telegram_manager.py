@@ -330,10 +330,6 @@ class TelegramManager:
         """
         Assembles buttons to display under the Telegram post.
 
-        A Comments button is prepended as the first row when
-        telegram_comments_link is configured, so the native "Leave a comment"
-        link is never hidden by inline buttons.
-
         Args:
             caption (str): The caption to parse.
 
@@ -342,15 +338,9 @@ class TelegramManager:
         """
         keyboard = {'inline_keyboard': []}
 
-        if self.config.telegram_comments_link:
-            keyboard['inline_keyboard'].append([{
-                'text': '💬 Comments',
-                'url': self.config.telegram_comments_link,
-            }])
-
         if caption is not None:
             url_column = 0
-            url_row = len(keyboard['inline_keyboard']) - 1
+            url_row = -1
             for line in caption.split(','):
                 line = line.strip()
                 if 'http' in line:
@@ -538,7 +528,7 @@ class TelegramManager:
             path (str): The path to the image file, used for logging.
 
         Returns:
-            bool: True if the image was sent successfully, False otherwise.
+            int: The message_id of the sent message, or None on failure.
 
         Note:
             Fields are posted as multipart form data rather than appended to the
@@ -566,11 +556,11 @@ class TelegramManager:
                     self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
                     if 400 <= sent_file.status_code < 500:
                         self.send_message(f"❌ Image failed to send (Client Error): `{path}`\nStatus: {sent_file.status_code}")
-                        return False
+                        return None
 
                     if attempt == max_retries - 1:
                         self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nStatus: {sent_file.status_code}")
-                        return False
+                        return None
                     continue
 
                 content_type = sent_file.headers.get('Content-Type', '')
@@ -578,22 +568,67 @@ class TelegramManager:
 
                 if response_json.get("ok"):
                     self.logger.debug("Image sent successfully.")
-                    return True
+                    return response_json.get("result", {}).get("message_id")
                 else:
                     self.logger.error(f"{path} failed to send. Response: {response_json}")
                     if attempt == max_retries - 1:
                         self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nResponse: {response_json.get('description', 'Unknown error')}")
-                        return False
+                        return None
 
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"Could not communicate with the Telegram bot (attempt {attempt + 1}/{max_retries}): {self._redact_token(e)}")
                 if attempt == max_retries - 1:
                     self.send_message(f"❌ Network error sending image after {max_retries} attempts: `{path}`\nError: {type(e).__name__}")
-                    return False
+                    return None
                 # Wait before retrying (exponential backoff)
                 time.sleep(2 ** attempt)
 
-        return False
+        return None
+
+    def build_comments_link(self, message_id: int) -> str:
+        """
+        Builds a deep link to a channel post's comment thread.
+
+        Args:
+            message_id (int): The message ID of the channel post.
+
+        Returns:
+            str: A URL like https://t.me/c/CHANNEL_ID/MESSAGE_ID that opens
+                 the comment thread for that specific post.
+        """
+        channel_id = str(self.config.telegram_channel)
+        if channel_id.startswith('-100'):
+            channel_id = channel_id[4:]
+        return f"https://t.me/c/{channel_id}/{message_id}"
+
+    def edit_reply_markup(self, chat_id: str, message_id: int, reply_markup: dict) -> bool:
+        """
+        Edits the inline keyboard on an existing message.
+
+        Args:
+            chat_id (str): The chat the message belongs to.
+            message_id (int): The message to edit.
+            reply_markup (dict): The new inline keyboard.
+
+        Returns:
+            bool: True if the edit succeeded.
+        """
+        url = self.build_telegram_api_url('editMessageReplyMarkup', '')
+        payload = {
+            'chat_id': chat_id,
+            'message_id': message_id,
+            'reply_markup': json.dumps(reply_markup),
+        }
+        try:
+            response = requests.post(url, data=payload, timeout=10)
+            result = response.json()
+            if not result.get('ok'):
+                self.logger.error(f"Failed to edit reply markup: {result}")
+                return False
+            return True
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Could not edit reply markup: {self._redact_token(e)}")
+            return False
 
     def process_incoming_message(self, message: dict):
         """

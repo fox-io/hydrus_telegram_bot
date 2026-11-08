@@ -252,6 +252,7 @@ class TestProcessQueueFailureHandling(unittest.TestCase):
         self.manager.config.telegram_channel = -100
         self.manager.config.max_post_attempts = 10
         self.manager.telegram = MagicMock()
+        self.manager.telegram.config.telegram_comments_link = ''
         self.manager.hydrus = MagicMock()
         self.manager.load_queue = MagicMock()
         self.manager.save_queue = MagicMock()
@@ -283,7 +284,7 @@ class TestProcessQueueFailureHandling(unittest.TestCase):
     def test_send_failure_is_recorded(self):
         self._queue('photo.jpg')
         self.manager.telegram.reduce_image_size.return_value = True
-        self.manager.telegram.send_image.return_value = False
+        self.manager.telegram.send_image.return_value = None
         with patch('builtins.open', MagicMock()):
             self.manager.process_queue()
 
@@ -293,7 +294,7 @@ class TestProcessQueueFailureHandling(unittest.TestCase):
     def test_successful_send_deletes_and_does_not_count_failure(self):
         self._queue('photo.jpg')
         self.manager.telegram.reduce_image_size.return_value = True
-        self.manager.telegram.send_image.return_value = True
+        self.manager.telegram.send_image.return_value = 42
         with patch('builtins.open', MagicMock()):
             self.manager.process_queue()
 
@@ -324,6 +325,7 @@ class TestProcessQueueKeepsTrying(unittest.TestCase):
         self.manager.config = MagicMock()
         self.manager.config.max_post_attempts = 10
         self.manager.telegram = MagicMock()
+        self.manager.telegram.config.telegram_comments_link = ''
         self.manager.hydrus = MagicMock()
         self.manager.load_queue = MagicMock()
         self.manager.save_queue = MagicMock()
@@ -432,6 +434,7 @@ class TestProcessQueueEndToEnd(unittest.TestCase):
         self.manager.config.max_send_failures = 3
         self.manager.config.failed_tag = 'failed:telegram'
         self.manager.telegram = MagicMock()
+        self.manager.telegram.config.telegram_comments_link = ''
         self.manager.telegram.reduce_image_size.return_value = True
         self.manager.hydrus = MagicMock()
         self.manager.hydrus.mark_file_failed.return_value = True
@@ -446,7 +449,7 @@ class TestProcessQueueEndToEnd(unittest.TestCase):
             {'path': 'b.jpg', 'file_id': 2, 'failures': 2},
             {'path': 'c.jpg', 'file_id': 3, 'failures': 2},
         ]}
-        self.manager.telegram.send_image.return_value = False
+        self.manager.telegram.send_image.return_value = None
 
         with patch('builtins.open', MagicMock()), patch('os.remove'):
             self.manager.process_queue()
@@ -467,7 +470,7 @@ class TestProcessQueueEndToEnd(unittest.TestCase):
             {'path': 'bad.jpg', 'file_id': 1},
             {'path': 'good.jpg', 'file_id': 2},
         ]}
-        self.manager.telegram.send_image.side_effect = lambda method, fields, files, path: path == 'queue/good.jpg'
+        self.manager.telegram.send_image.side_effect = lambda method, fields, files, path: 99 if path == 'queue/good.jpg' else None
 
         with patch('builtins.open', MagicMock()), patch('os.remove'), \
              patch('random.choice', lambda seq: seq[0]):
