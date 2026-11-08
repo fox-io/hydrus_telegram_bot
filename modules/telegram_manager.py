@@ -366,6 +366,8 @@ class TelegramManager:
                         website = 'e621'
                     elif 'patreon' in link.netloc:
                         website = 'Patreon'
+                    elif link.netloc in ('x.com', 'www.x.com', 'twitter.com', 'www.twitter.com'):
+                        website = 'Twitter/X'
                     elif 'reddit' in link.netloc:
                         subreddit_match = re.search(self.subreddit_regex, link.geturl(), re.IGNORECASE)
                         website = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'

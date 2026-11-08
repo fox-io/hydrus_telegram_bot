@@ -338,6 +338,14 @@ class TestBuildCaptionButtons(unittest.TestCase):
         buttons = result['inline_keyboard']
         self.assertEqual('Patreon', buttons[0][0]['text'])
 
+    def test_twitter_x_url_gets_label(self):
+        for url in ("https://x.com/someone/status/123",
+                     "https://www.x.com/someone/status/123",
+                     "https://twitter.com/someone/status/123"):
+            with self.subTest(url=url):
+                result = self.manager.build_caption_buttons(url)
+                self.assertEqual('Twitter/X', result['inline_keyboard'][0][0]['text'])
+
     def test_reddit_url_with_subreddit(self):
         caption = "https://www.reddit.com/r/aww/comments/abc123"
         result = self.manager.build_caption_buttons(caption)
