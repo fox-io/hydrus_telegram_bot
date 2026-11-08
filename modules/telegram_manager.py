@@ -585,22 +585,6 @@ class TelegramManager:
 
         return None
 
-    def build_comments_link(self, message_id: int) -> str:
-        """
-        Builds a deep link to a channel post's comment thread.
-
-        Args:
-            message_id (int): The message ID of the channel post.
-
-        Returns:
-            str: A URL like https://t.me/c/CHANNEL_ID/MESSAGE_ID that opens
-                 the comment thread for that specific post.
-        """
-        channel_id = str(self.config.telegram_channel)
-        if channel_id.startswith('-100'):
-            channel_id = channel_id[4:]
-        return f"https://t.me/c/{channel_id}/{message_id}?comment"
-
     def edit_reply_markup(self, chat_id: str, message_id: int, reply_markup: dict) -> bool:
         """
         Edits the inline keyboard on an existing message.
