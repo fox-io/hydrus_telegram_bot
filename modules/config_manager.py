@@ -120,7 +120,6 @@ class ConfigModel(BaseModel):
     imagemagick_memory_limit_mb: int = Field(256, ge=16, title='ImageMagick Memory Limit', description='Megabytes of pixel cache ImageMagick may use before spilling to disk. Also derives its map, disk and area limits.')
     imagemagick_time_limit_seconds: int = Field(60, ge=1, title='ImageMagick Time Limit', description='How long any single ImageMagick operation may run before it is aborted.')
     imagemagick_max_source_dimension: int = Field(50000, ge=1, title='ImageMagick Max Source Dimension', description='Largest width or height in pixels ImageMagick will accept from a source file. Guards against decompression bombs declaring enormous dimensions.')
-    telegram_channel_username: str = Field('', title='Telegram Channel Username', description='Public username of the channel (without @). When set, a Comments button linking to each post\'s comment thread is added so the native "Leave a comment" link is never hidden by other buttons.')
     admins: list[int] = Field(..., title='Admins', description='A list of Telegram user IDs that are bot admins.')
     delay: int = Field(..., title='Delay', description='The delay between updates in minutes.')
     timezone: int = Field(..., title='Timezone', description='The timezone offset in hours.')

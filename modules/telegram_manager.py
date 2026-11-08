@@ -326,70 +326,93 @@ class TelegramManager:
             return text
         return html.escape(str(text), quote=False)
 
-    def build_caption_buttons(self, caption: str):
+    def _label_for_url(self, link):
         """
-        Assembles buttons to display under the Telegram post.
+        Returns a display label and whether to skip this URL.
 
         Args:
-            caption (str): The caption to parse.
+            link (ParseResult): A parsed URL.
 
         Returns:
-            dict: The keyboard for the Telegram post.
+            tuple: (label, skip) where label is the display name and skip is
+                   True if the link should be omitted entirely.
         """
-        keyboard = {'inline_keyboard': []}
+        skip = False
 
-        if caption is not None:
-            url_column = 0
-            url_row = -1
-            for line in caption.split(','):
-                line = line.strip()
-                if 'http' in line:
-                    link = urlparse(line)
-                    skip_link = False
+        if 'furaffinity' in link.netloc:
+            label = 'Furaffinity'
+            if 'user' in link.path:
+                skip = True
+            else:
+                fa_user_match = re.search(r'/(?:gallery|scraps|favorites|journals)/([^/]+)', link.path)
+                if fa_user_match:
+                    label = f'Furaffinity ({fa_user_match.group(1)})'
+                fa_url = link.geturl()
+                try:
+                    response = requests.get(fa_url, timeout=10)
+                    if "The submission you are trying to find is not in our database." in response.text:
+                        skip = True
+                except requests.exceptions.RequestException as e:
+                    self.logger.error(f"An error occurred when checking the Furaffinity link: {e}")
+        elif 'e621' in link.netloc:
+            label = 'e621'
+        elif 'patreon' in link.netloc:
+            label = 'Patreon'
+        elif link.netloc in ('x.com', 'www.x.com', 'twitter.com', 'www.twitter.com'):
+            twitter_match = re.search(r'/([^/]+?)(?:/|$)', link.path)
+            if twitter_match and twitter_match.group(1) not in ('i', 'search', 'explore', 'home', 'hashtag', 'settings', 'messages', 'notifications'):
+                label = f'Twitter/X ({twitter_match.group(1)})'
+            else:
+                label = 'Twitter/X'
+        elif 'reddit' in link.netloc:
+            subreddit_match = re.search(self.subreddit_regex, link.geturl(), re.IGNORECASE)
+            label = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
+        else:
+            label = link.netloc
+            if label.startswith('www.'):
+                label = label[4:]
 
-                    # Pretty print known site names.
-                    if 'furaffinity' in link.netloc:
-                        website = 'Furaffinity'
+        return label, skip
 
-                        if 'user' in link.path:
-                            skip_link = True
+    def build_sauce_links(self, sauce: str) -> str:
+        """
+        Builds HTML sauce links for the caption in a two-column layout.
 
-                        # Check if the link is dead on Furaffinity.
-                        fa_url = link.geturl()
-                        try:
-                            response = requests.get(fa_url, timeout=10)
-                            if "The submission you are trying to find is not in our database." in response.text:
-                                skip_link = True
-                        except requests.exceptions.RequestException as e:
-                            self.logger.error(f"An error occurred when checking the Furaffinity link: {e}")
-                    elif 'e621' in link.netloc:
-                        website = 'e621'
-                    elif 'patreon' in link.netloc:
-                        website = 'Patreon'
-                    elif link.netloc in ('x.com', 'www.x.com', 'twitter.com', 'www.twitter.com'):
-                        website = 'Twitter/X'
-                    elif 'reddit' in link.netloc:
-                        subreddit_match = re.search(self.subreddit_regex, link.geturl(), re.IGNORECASE)
-                        website = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
-                    else:
-                        website = link.netloc
+        Sauce links are placed in the caption as HTML hyperlinks instead of
+        inline keyboard buttons, so the native "Leave a comment" link is
+        never hidden.
 
-                    # Only add the button if the link is not dead.
-                    if not skip_link:
-                        if url_column == 0:
-                            keyboard['inline_keyboard'].append([])
-                            url_row += 1
-                        url = link.geturl()
-                        keyboard['inline_keyboard'][url_row].append({
-                            'text': website,
-                            'url': url
-                        })
-                        # Alternate between the two columns.
-                        url_column = 1 - url_column
+        Args:
+            sauce (str): Comma-separated source URLs.
 
-        if keyboard['inline_keyboard']:
-            return keyboard
-        return None
+        Returns:
+            str: HTML-formatted sauce links, or an empty string if none.
+        """
+        if not sauce:
+            return ''
+
+        links = []
+        for part in sauce.split(','):
+            part = part.strip()
+            if 'http' not in part:
+                continue
+            link = urlparse(part)
+            label, skip = self._label_for_url(link)
+            if not skip:
+                url = link.geturl()
+                links.append(f'<a href="{url}">{self.escape_html(label)}</a>')
+
+        if not links:
+            return ''
+
+        # Two-column layout: pair links side by side separated by " · "
+        rows = []
+        for i in range(0, len(links), 2):
+            if i + 1 < len(links):
+                rows.append(f'{links[i]}  ·  {links[i + 1]}')
+            else:
+                rows.append(links[i])
+        return '\n'.join(rows)
 
     def reduce_image_size(self, path):
         """
@@ -459,11 +482,6 @@ class TelegramManager:
         """
         fields = {}
 
-        # Sauce Buttons (and Comments button when configured)
-        sauce = self.build_caption_buttons(image.get('sauce'))
-        if sauce:
-            fields['reply_markup'] = json.dumps(sauce)
-
         # Caption Text
         caption_parts = []
         #     Title
@@ -475,6 +493,10 @@ class TelegramManager:
         #     Character
         if "character" in image and image["character"]:
             caption_parts.append('Character(s):\n' + str(image['character']))
+        #     Sauce links
+        sauce_links = self.build_sauce_links(image.get('sauce', ''))
+        if sauce_links:
+            caption_parts.append('Source(s):\n' + sauce_links)
         caption = "\n\n".join(caption_parts) if caption_parts else "No info."
         # Do not let captions be longer than 1024 characters (max Telegram bot limit).
         if len(caption) > 1024:
@@ -530,7 +552,7 @@ class TelegramManager:
             path (str): The path to the image file, used for logging.
 
         Returns:
-            int: The message_id of the sent message, or None on failure.
+            bool: True if the image was sent successfully, False otherwise.
 
         Note:
             Fields are posted as multipart form data rather than appended to the
@@ -558,11 +580,11 @@ class TelegramManager:
                     self.logger.error(f"{path} failed to send. Telegram API returned {sent_file.status_code} - {sent_file.text}")
                     if 400 <= sent_file.status_code < 500:
                         self.send_message(f"❌ Image failed to send (Client Error): `{path}`\nStatus: {sent_file.status_code}")
-                        return None
+                        return False
 
                     if attempt == max_retries - 1:
                         self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nStatus: {sent_file.status_code}")
-                        return None
+                        return False
                     continue
 
                 content_type = sent_file.headers.get('Content-Type', '')
@@ -570,51 +592,22 @@ class TelegramManager:
 
                 if response_json.get("ok"):
                     self.logger.debug("Image sent successfully.")
-                    return response_json.get("result", {}).get("message_id")
+                    return True
                 else:
                     self.logger.error(f"{path} failed to send. Response: {response_json}")
                     if attempt == max_retries - 1:
                         self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nResponse: {response_json.get('description', 'Unknown error')}")
-                        return None
+                        return False
 
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"Could not communicate with the Telegram bot (attempt {attempt + 1}/{max_retries}): {self._redact_token(e)}")
                 if attempt == max_retries - 1:
                     self.send_message(f"❌ Network error sending image after {max_retries} attempts: `{path}`\nError: {type(e).__name__}")
-                    return None
+                    return False
                 # Wait before retrying (exponential backoff)
                 time.sleep(2 ** attempt)
 
-        return None
-
-    def edit_reply_markup(self, chat_id: str, message_id: int, reply_markup: dict) -> bool:
-        """
-        Edits the inline keyboard on an existing message.
-
-        Args:
-            chat_id (str): The chat the message belongs to.
-            message_id (int): The message to edit.
-            reply_markup (dict): The new inline keyboard.
-
-        Returns:
-            bool: True if the edit succeeded.
-        """
-        url = self.build_telegram_api_url('editMessageReplyMarkup', '')
-        payload = {
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'reply_markup': json.dumps(reply_markup),
-        }
-        try:
-            response = requests.post(url, data=payload, timeout=10)
-            result = response.json()
-            if not result.get('ok'):
-                self.logger.error(f"Failed to edit reply markup: {result}")
-                return False
-            return True
-        except requests.exceptions.RequestException as e:
-            self.logger.error(f"Could not edit reply markup: {self._redact_token(e)}")
-            return False
+        return False
 
     def process_incoming_message(self, message: dict):
         """

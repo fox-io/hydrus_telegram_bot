@@ -37,7 +37,6 @@ class TestGetMessageMarkup(unittest.TestCase):
         self.manager = TelegramManager(None)
         self.manager.logger = MagicMock()
         self.manager.config = MagicMock()
-        self.manager.config.telegram_channel_username = ''
 
     def test_special_characters_are_left_unencoded(self):
         """The caption is a value, so &, < and > travel through verbatim."""
@@ -69,23 +68,20 @@ class TestGetMessageMarkup(unittest.TestCase):
         self.assertLessEqual(len(caption), 1024)
         self.assertTrue(caption.endswith("..."))
 
-    def test_reply_markup_is_a_json_string(self):
-        """Telegram expects reply_markup as JSON text, not a nested object."""
-        self.manager.build_caption_buttons = MagicMock(return_value={'inline_keyboard': [[{'text': 'e621', 'url': 'https://e621.net/posts/1'}]]})
+    def test_sauce_links_appear_in_caption(self):
+        self.manager.build_sauce_links = MagicMock(return_value='<a href="https://e621.net/posts/1">e621</a>')
+        fields = self.manager.get_message_markup({"sauce": "https://e621.net/posts/1", "title": "T"})
+        self.assertIn('e621', fields['caption'])
+        self.assertIn('Source(s):', fields['caption'])
 
-        fields = self.manager.get_message_markup({"sauce": "https://e621.net/posts/1"})
+    def test_no_reply_markup_in_fields(self):
+        """Sauce is in the caption now, never in reply_markup."""
+        fields = self.manager.get_message_markup({"sauce": "https://e621.net/posts/1", "title": "T"})
+        self.assertNotIn('reply_markup', fields)
 
-        self.assertIsInstance(fields['reply_markup'], str)
-        self.assertEqual({'inline_keyboard': [[{'text': 'e621', 'url': 'https://e621.net/posts/1'}]]},
-                         json.loads(fields['reply_markup']))
-
-    def test_no_reply_markup_without_sauce(self):
-        self.assertNotIn('reply_markup', self.manager.get_message_markup({"title": "T"}))
-
-    def test_returns_only_known_fields(self):
-        self.manager.build_caption_buttons = MagicMock(return_value={'inline_keyboard': [[]]})
+    def test_returns_only_caption(self):
         fields = self.manager.get_message_markup({"sauce": "x", "title": "T"})
-        self.assertEqual({'caption', 'reply_markup'}, set(fields))
+        self.assertEqual({'caption'}, set(fields))
 
 
 class TestConcatenateSauce(unittest.TestCase):
@@ -310,88 +306,92 @@ class TestRedactToken(unittest.TestCase):
         self.assertEqual("No token here", result)
 
 
-class TestBuildCaptionButtons(unittest.TestCase):
-    """Tests for TelegramManager.build_caption_buttons()"""
+class TestBuildSauceLinks(unittest.TestCase):
+    """Tests for TelegramManager.build_sauce_links()"""
 
     @patch.object(TelegramManager, '__init__', lambda self, config: None)
     def setUp(self):
         self.manager = TelegramManager(None)
         self.manager.logger = MagicMock()
         self.manager.config = MagicMock()
-        self.manager.config.telegram_channel_username = ''
 
-    def test_none_caption_returns_none(self):
-        result = self.manager.build_caption_buttons(None)
-        self.assertIsNone(result)
+    def test_none_returns_empty(self):
+        self.assertEqual('', self.manager.build_sauce_links(None))
+
+    def test_empty_returns_empty(self):
+        self.assertEqual('', self.manager.build_sauce_links(''))
 
     def test_e621_url_gets_label(self):
-        caption = "https://e621.net/posts/123"
-        result = self.manager.build_caption_buttons(caption)
-        self.assertIsNotNone(result)
-        buttons = result['inline_keyboard']
-        self.assertEqual(1, len(buttons))
-        self.assertEqual('e621', buttons[0][0]['text'])
+        result = self.manager.build_sauce_links("https://e621.net/posts/123")
+        self.assertIn('e621', result)
+        self.assertIn('href="https://e621.net/posts/123"', result)
 
     def test_patreon_url_gets_label(self):
-        caption = "https://www.patreon.com/posts/123"
-        result = self.manager.build_caption_buttons(caption)
-        buttons = result['inline_keyboard']
-        self.assertEqual('Patreon', buttons[0][0]['text'])
+        result = self.manager.build_sauce_links("https://www.patreon.com/posts/123")
+        self.assertIn('Patreon', result)
 
     def test_twitter_x_url_gets_label(self):
         for url in ("https://x.com/someone/status/123",
                      "https://www.x.com/someone/status/123",
                      "https://twitter.com/someone/status/123"):
             with self.subTest(url=url):
-                result = self.manager.build_caption_buttons(url)
-                self.assertEqual('Twitter/X', result['inline_keyboard'][0][0]['text'])
+                result = self.manager.build_sauce_links(url)
+                self.assertIn('Twitter/X', result)
 
     def test_reddit_url_with_subreddit(self):
-        caption = "https://www.reddit.com/r/aww/comments/abc123"
-        result = self.manager.build_caption_buttons(caption)
-        buttons = result['inline_keyboard']
-        self.assertIn('Reddit', buttons[0][0]['text'])
-        self.assertIn('r/aww', buttons[0][0]['text'])
+        result = self.manager.build_sauce_links("https://www.reddit.com/r/aww/comments/abc123")
+        self.assertIn('Reddit', result)
+        self.assertIn('r/aww', result)
 
-    def test_multiple_urls_in_two_columns(self):
-        """Two URLs should be in the same row (two-column layout)."""
-        caption = "https://e621.net/posts/1, https://e621.net/posts/2"
-        result = self.manager.build_caption_buttons(caption)
-        buttons = result['inline_keyboard']
-        # Two URLs should be in the same row
-        self.assertEqual(1, len(buttons))
-        self.assertEqual(2, len(buttons[0]))
+    def test_unknown_host_shows_domain_not_full_url(self):
+        result = self.manager.build_sauce_links("https://www.somesite.com/very/long/path/to/post")
+        self.assertIn('somesite.com', result)
+        self.assertNotIn('very/long/path', result.split('href')[0])
 
-    def test_button_layout_wraps_at_two_per_row(self):
-        """
-        Pins the column toggle across several rows.
+    def test_two_urls_on_one_line(self):
+        """Two URLs should be on the same line separated by a dot separator."""
+        result = self.manager.build_sauce_links("https://e621.net/posts/1, https://e621.net/posts/2")
+        lines = result.strip().split('\n')
+        self.assertEqual(1, len(lines))
+        self.assertIn('·', lines[0])
 
-        The toggle was written as `url_column == 0 and 1 or 0`, which is correct
-        but obscures the intent, and the and/or form silently returns the wrong
-        branch whenever the middle value is falsy.
-        """
-        expected = {1: [1], 2: [2], 3: [2, 1], 4: [2, 2], 5: [2, 2, 1], 6: [2, 2, 2]}
-        for count, shape in expected.items():
-            with self.subTest(urls=count):
-                caption = ", ".join(f"https://e621.net/posts/{i}" for i in range(count))
-                rows = self.manager.build_caption_buttons(caption)['inline_keyboard']
-                self.assertEqual(shape, [len(row) for row in rows])
+    def test_three_urls_wrap(self):
+        """Three URLs: two on first line, one on second."""
+        sauce = "https://e621.net/posts/1, https://e621.net/posts/2, https://e621.net/posts/3"
+        result = self.manager.build_sauce_links(sauce)
+        lines = result.strip().split('\n')
+        self.assertEqual(2, len(lines))
 
-    def test_every_url_gets_exactly_one_button(self):
-        """No link may be dropped or duplicated by the row bookkeeping."""
-        urls = [f"https://e621.net/posts/{i}" for i in range(7)]
-        rows = self.manager.build_caption_buttons(", ".join(urls))['inline_keyboard']
-        emitted = [button['url'] for row in rows for button in row]
-        self.assertEqual(urls, emitted)
+    def test_every_url_appears(self):
+        urls = [f"https://e621.net/posts/{i}" for i in range(5)]
+        result = self.manager.build_sauce_links(", ".join(urls))
+        for url in urls:
+            self.assertIn(url, result)
 
-    def test_single_url_makes_one_row(self):
-        rows = self.manager.build_caption_buttons("https://e621.net/posts/1")['inline_keyboard']
-        self.assertEqual([1], [len(row) for row in rows])
+    def test_no_http_links_returns_empty(self):
+        self.assertEqual('', self.manager.build_sauce_links("just some text"))
 
-    def test_no_http_links_returns_none_without_comments(self):
-        result = self.manager.build_caption_buttons("just some text without urls")
-        self.assertIsNone(result)
+    def test_twitter_url_includes_username(self):
+        result = self.manager.build_sauce_links("https://x.com/someartist/status/123")
+        self.assertIn('Twitter/X (someartist)', result)
 
+    def test_twitter_bare_domain_no_username(self):
+        result = self.manager.build_sauce_links("https://x.com/home")
+        self.assertNotIn('(', result)
+        self.assertIn('Twitter/X', result)
+
+    @patch('requests.get')
+    def test_furaffinity_view_url_no_username(self, mock_get):
+        mock_get.return_value = MagicMock(text='some page content')
+        result = self.manager.build_sauce_links("https://www.furaffinity.net/view/12345/")
+        self.assertIn('Furaffinity', result)
+        self.assertNotIn('(', result)
+
+    @patch('requests.get')
+    def test_furaffinity_gallery_url_includes_username(self, mock_get):
+        mock_get.return_value = MagicMock(text='some page content')
+        result = self.manager.build_sauce_links("https://www.furaffinity.net/gallery/someartist/")
+        self.assertIn('Furaffinity (someartist)', result)
 
 
 if __name__ == "__main__":
