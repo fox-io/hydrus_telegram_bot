@@ -747,8 +747,8 @@ class QueueManager:
             # Edit the post to add a Comments button linking to this post's
             # comment thread, so the link is always visible even when other
             # inline buttons are present.
-            if self.telegram.config.telegram_comments_link:
-                comments_url = self.telegram.config.telegram_comments_link
+            if self.telegram.config.telegram_channel_username and message_id:
+                comments_url = f"https://t.me/{self.telegram.config.telegram_channel_username}/{message_id}?comment"
                 markup = fields.get('reply_markup')
                 keyboard = json.loads(markup) if markup else {'inline_keyboard': []}
                 keyboard['inline_keyboard'].insert(0, [{

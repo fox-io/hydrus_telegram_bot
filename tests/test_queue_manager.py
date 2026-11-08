@@ -252,7 +252,7 @@ class TestProcessQueueFailureHandling(unittest.TestCase):
         self.manager.config.telegram_channel = -100
         self.manager.config.max_post_attempts = 10
         self.manager.telegram = MagicMock()
-        self.manager.telegram.config.telegram_comments_link = ''
+        self.manager.telegram.config.telegram_channel_username = ''
         self.manager.hydrus = MagicMock()
         self.manager.load_queue = MagicMock()
         self.manager.save_queue = MagicMock()
@@ -325,7 +325,7 @@ class TestProcessQueueKeepsTrying(unittest.TestCase):
         self.manager.config = MagicMock()
         self.manager.config.max_post_attempts = 10
         self.manager.telegram = MagicMock()
-        self.manager.telegram.config.telegram_comments_link = ''
+        self.manager.telegram.config.telegram_channel_username = ''
         self.manager.hydrus = MagicMock()
         self.manager.load_queue = MagicMock()
         self.manager.save_queue = MagicMock()
@@ -434,7 +434,7 @@ class TestProcessQueueEndToEnd(unittest.TestCase):
         self.manager.config.max_send_failures = 3
         self.manager.config.failed_tag = 'failed:telegram'
         self.manager.telegram = MagicMock()
-        self.manager.telegram.config.telegram_comments_link = ''
+        self.manager.telegram.config.telegram_channel_username = ''
         self.manager.telegram.reduce_image_size.return_value = True
         self.manager.hydrus = MagicMock()
         self.manager.hydrus.mark_file_failed.return_value = True

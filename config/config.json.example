@@ -6,7 +6,7 @@
   "hydrus_api_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   "queue_tag": "share_to_telegram_tag",
   "posted_tag": "posted:telegram",
-  "telegram_comments_link": "",
+  "telegram_channel_username": "",
   "failed_tag": "failed:telegram",
   "max_send_failures": 3,
   "max_post_attempts": 10,

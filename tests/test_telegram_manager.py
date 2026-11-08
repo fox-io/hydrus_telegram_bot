@@ -37,7 +37,7 @@ class TestGetMessageMarkup(unittest.TestCase):
         self.manager = TelegramManager(None)
         self.manager.logger = MagicMock()
         self.manager.config = MagicMock()
-        self.manager.config.telegram_comments_link = ''
+        self.manager.config.telegram_channel_username = ''
 
     def test_special_characters_are_left_unencoded(self):
         """The caption is a value, so &, < and > travel through verbatim."""
@@ -318,7 +318,7 @@ class TestBuildCaptionButtons(unittest.TestCase):
         self.manager = TelegramManager(None)
         self.manager.logger = MagicMock()
         self.manager.config = MagicMock()
-        self.manager.config.telegram_comments_link = ''
+        self.manager.config.telegram_channel_username = ''
 
     def test_none_caption_returns_none(self):
         result = self.manager.build_caption_buttons(None)
