@@ -604,12 +604,26 @@ class TelegramManager:
                         self.send_message(f"❌ Image failed to send after {max_retries} attempts: `{path}`\nResponse: {response_json.get('description', 'Unknown error')}")
                         return False
 
+            except requests.exceptions.ReadTimeout:
+                # A read timeout on a POST upload means the request likely reached
+                # Telegram — retrying would cause a duplicate post.
+                self.logger.warning(f"Read timeout sending {path} (attempt {attempt + 1}/{max_retries}). "
+                                    "Treating as possible success to avoid duplicate posts.")
+                return True
+
+            except requests.exceptions.ConnectionError as e:
+                # Connection never reached Telegram — safe to retry.
+                self.logger.error(f"Could not communicate with the Telegram bot (attempt {attempt + 1}/{max_retries}): {self._redact_token(e)}")
+                if attempt == max_retries - 1:
+                    self.send_message(f"❌ Network error sending image after {max_retries} attempts: `{path}`\nError: {type(e).__name__}")
+                    return False
+                time.sleep(2 ** attempt)
+
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"Could not communicate with the Telegram bot (attempt {attempt + 1}/{max_retries}): {self._redact_token(e)}")
                 if attempt == max_retries - 1:
                     self.send_message(f"❌ Network error sending image after {max_retries} attempts: `{path}`\nError: {type(e).__name__}")
                     return False
-                # Wait before retrying (exponential backoff)
                 time.sleep(2 ** attempt)
 
         return False
