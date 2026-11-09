@@ -392,6 +392,15 @@ class TestBuildSauceLinks(unittest.TestCase):
         result = self.manager.build_sauce_links("https://www.furaffinity.net/gallery/someartist/")
         self.assertIn('Furaffinity (someartist)', result)
 
+    def test_bluesky_url_with_username(self):
+        result = self.manager.build_sauce_links("https://bsky.app/profile/someartist.bsky.social/post/abc123")
+        self.assertIn('Bluesky (someartist.bsky.social)', result)
+
+    def test_bluesky_url_without_profile(self):
+        result = self.manager.build_sauce_links("https://bsky.app/search")
+        self.assertIn('Bluesky', result)
+        self.assertNotIn('(', result)
+
 
 if __name__ == "__main__":
     unittest.main()

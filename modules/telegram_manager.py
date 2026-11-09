@@ -363,6 +363,12 @@ class TelegramManager:
                 label = f'Twitter/X ({twitter_match.group(1)})'
             else:
                 label = 'Twitter/X'
+        elif 'bsky.app' in link.netloc:
+            bsky_match = re.search(r'/profile/([^/]+)', link.path)
+            if bsky_match:
+                label = f'Bluesky ({bsky_match.group(1)})'
+            else:
+                label = 'Bluesky'
         elif 'reddit' in link.netloc:
             subreddit_match = re.search(self.subreddit_regex, link.geturl(), re.IGNORECASE)
             label = 'Reddit (' + subreddit_match.group(1) + ')' if subreddit_match else 'Reddit'
